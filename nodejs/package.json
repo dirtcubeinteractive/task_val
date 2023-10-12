@@ -1,0 +1,20 @@
+{
+  "name": "event-architechture-poc",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pg": "^8.11.1",
+    "mongoose": "^7.4.3",
+    "json-rules-engine": "^6.3.1",
+    "mongodb": "^5.7.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.32.1",
+    "uuid": "^9.0.0"
+  }
+}
