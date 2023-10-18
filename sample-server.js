@@ -408,13 +408,6 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
 
 
     function getAggregateQuery({parameters, userId, limit, startTime, endTime}) {
-        console.log('parameters', parameters);
-        console.log('userId', userId);
-        // console.log('param.parameterName', param.parameterName);
-        console.log('limit', limit);
-        console.log('startTime', startTime);
-        console.log('endTime', endTime);
-        console.log('userId', userId);
         if (!limit && !startTime && !endTime) {
             const oneShotConditions = parameters.map(param => {
                 if (param.incrementalType === 'one-shot') {
@@ -473,16 +466,51 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
         }
 
         if (limit) {
+            const oneShotConditions = parameters.map(param => {
+                if (param.incrementalType === 'one-shot') {
+                    return {
+                        $or: [
+                            { [`data.defaultParams.${param.parameterName}`]: param.value },
+                            { [`data.customParams.${param.parameterName}`]: param.value }
+                        ]
+                    };
+                }
+                return null;
+            }).filter(Boolean);
+
+            const sumLogic = parameters.map(param => {
+                if (param.incrementalType === 'cumulative') {
+                    return {
+                        $add: [
+                            { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
+                            { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
+                        ]
+                    };
+                }
+                return null;
+            }).filter(Boolean);
+
+            let initialMatch = {
+                userId: userId
+            };
+
+            if (oneShotConditions.length > 0) {
+                initialMatch.$and = [
+                    { userId: userId },
+                    { $or: oneShotConditions }
+                ];
+            }
+
             return [
                 {
-                    $match: {
-                        userId: userId
-                    }
+                    $match: initialMatch
                 },
                 {
                     $project: {
                         _id: 0,
-                        sum: {$ifNull: [`$data.${param.parameterName}`, 0]}
+                        sum: {
+                            $sum: sumLogic
+                        }
                     }
                 },
                 {
@@ -494,10 +522,37 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                 {
                     $group: {
                         _id: null,
-                        totalSum: {$sum: "$sum"}
+                        totalSum: { $sum: "$sum" }
                     }
                 }
             ];
+
+
+            // return [
+            //     {
+            //         $match: {
+            //             userId: userId
+            //         }
+            //     },
+            //     {
+            //         $project: {
+            //             _id: 0,
+            //             sum: {$ifNull: [`$data.${param.parameterName}`, 0]}
+            //         }
+            //     },
+            //     {
+            //         $sort: {_id: -1}
+            //     },
+            //     {
+            //         $limit: limit
+            //     },
+            //     {
+            //         $group: {
+            //             _id: null,
+            //             totalSum: {$sum: "$sum"}
+            //         }
+            //     }
+            // ];
         }
 
         // if (startTime || endTime) {
