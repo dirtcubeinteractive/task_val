@@ -27,7 +27,7 @@ const init = async () => {
         const db = client.db();
 
         // Delete all user data
-        await sequelize.query(`delete from users where project_id='97083cc6-cd6c-4104-b71d-78a0c582d2a1';`);
+        await sequelize.query(`delete from users where project_id='8db7e22e-7807-41ae-9e14-34eaa7149bf5';`);
 
         const aiti = db.collection('additemtoinventories');
         const me = db.collection('matchends');
@@ -39,13 +39,10 @@ const init = async () => {
         await uupm.deleteMany({});
         await upw.deleteMany({});
 
-        const newUserResponse =  await axios.post('http://localhost:3000/v1/client/auth/signup-email', {
-            email: "john@gmail.com",
+        const newUserResponse = await axios.post('http://localhost:3000/v1/client/auth/signup-email', {
+            email: "shubh@gmail.com",
             password: "123",
-            projectId: "97083cc6-cd6c-4104-b71d-78a0c582d2a1",
-            customParams : {
-                "dummy" : 1
-            }
+            projectId: "8db7e22e-7807-41ae-9e14-34eaa7149bf5"
         });
 
         const accessToken = newUserResponse.data.data.accessToken;
@@ -54,7 +51,7 @@ const init = async () => {
         await secondMatch(userId, accessToken);
         await thirdMatch(userId, accessToken);
         await fourthMatch(userId, accessToken);
-        await fifthMatch(userId, accessToken);
+        // await fifthMatch(userId, accessToken);
     } catch (err) {
         console.log('err', err);
     }
@@ -63,7 +60,7 @@ const init = async () => {
 
 async function firstMatch(userId, accessToken) {
     const firstMatchStartResponse = await axios.post('http://localhost:3000/v1/client/match-session/start', {
-        matchId: "e695a044-4c72-43a7-98a2-ec7684ba7471",
+        matchId: "1557a0fc-ca69-42e8-ad54-31c5c1e5fae1",
         userInfo: [
             {
                 id: `${userId}`
@@ -80,11 +77,12 @@ async function firstMatch(userId, accessToken) {
         userInfo: [
             {
                 id: `${userId}`,
-                outcome: 2,
+                outcome: 10000,
                 customParam: {
-                    goals: 2,
-                    premierleague: "false",
-                    count: 1
+                    itemId1: "IT1",
+                    quantity1: 2,
+                    itemId2: "IT2",
+                    quantity2: 2
                 }
             }
         ]
@@ -101,7 +99,7 @@ async function firstMatch(userId, accessToken) {
 
 async function secondMatch(userId, accessToken) {
     const secondMatchStartResponse = await axios.post('http://localhost:3000/v1/client/match-session/start', {
-        matchId: "e695a044-4c72-43a7-98a2-ec7684ba7471",
+        matchId: "1557a0fc-ca69-42e8-ad54-31c5c1e5fae1",
         userInfo: [
             {
                 id: `${userId}`
@@ -118,11 +116,12 @@ async function secondMatch(userId, accessToken) {
         userInfo: [
             {
                 id: `${userId}`,
-                outcome: 0,
+                outcome: 10000,
                 customParam: {
-                    goals: 0,
-                    premierleague: "false",
-                    count: 1
+                    itemId1: "IT1",
+                    quantity1: 2,
+                    itemId2: "IT2",
+                    quantity2: 2
                 }
             }
         ]
@@ -139,7 +138,7 @@ async function secondMatch(userId, accessToken) {
 
 async function thirdMatch(userId, accessToken) {
     const thirdMatchStartResponse = await axios.post('http://localhost:3000/v1/client/match-session/start', {
-        matchId: "e695a044-4c72-43a7-98a2-ec7684ba7471",
+        matchId: "1557a0fc-ca69-42e8-ad54-31c5c1e5fae1",
         userInfo: [
             {
                 id: `${userId}`
@@ -156,11 +155,12 @@ async function thirdMatch(userId, accessToken) {
         userInfo: [
             {
                 id: `${userId}`,
-                outcome: 3,
+                outcome: 10000,
                 customParam: {
-                    goals: 3,
-                    premierleague: "true",
-                    count: 1
+                    itemId1: "IT1",
+                    quantity1: 2,
+                    itemId2: "IT2",
+                    quantity2: 2
                 }
             }
         ]
@@ -177,7 +177,7 @@ async function thirdMatch(userId, accessToken) {
 
 async function fourthMatch(userId, accessToken) {
     const matchStartResponse = await axios.post('http://localhost:3000/v1/client/match-session/start', {
-        matchId: "e695a044-4c72-43a7-98a2-ec7684ba7471",
+        matchId: "1557a0fc-ca69-42e8-ad54-31c5c1e5fae1",
         userInfo: [
             {
                 id: `${userId}`
@@ -194,11 +194,12 @@ async function fourthMatch(userId, accessToken) {
         userInfo: [
             {
                 id: `${userId}`,
-                outcome: 2,
+                outcome: 10000,
                 customParam: {
-                    goals: 2,
-                    premierleague: "true",
-                    count: 1
+                    itemId1: "IT1",
+                    quantity1: 2,
+                    itemId2: "IT2",
+                    quantity2: 2
                 }
             }
         ]
@@ -215,7 +216,7 @@ async function fourthMatch(userId, accessToken) {
 
 async function fifthMatch(userId, accessToken) {
     const matchStartResponse = await axios.post('http://localhost:3000/v1/client/match-session/start', {
-        matchId: "e695a044-4c72-43a7-98a2-ec7684ba7471",
+        matchId: "1557a0fc-ca69-42e8-ad54-31c5c1e5fae1",
         userInfo: [
             {
                 id: `${userId}`
@@ -232,11 +233,10 @@ async function fifthMatch(userId, accessToken) {
         userInfo: [
             {
                 id: `${userId}`,
-                outcome: 4,
+                outcome: 10000,
                 customParam: {
-                    goals: 4,
-                    premierleague: "true",
-                    count: 1
+                    itemId: "IT1",
+                    quantity: 2
                 }
             }
         ]

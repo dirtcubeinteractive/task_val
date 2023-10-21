@@ -220,16 +220,15 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                                 userId,
                                 limit: param.noOfRecords || null,
                                 startTime: param.startTime || null,
-                                endTime: param.endTime || null
+                                endTime: param.endTime || null,
+                                businessLogic : task.businessLogic
                             });
                             console.log('query', JSON.stringify(pipeline));
                             console.log('collectionName', collectionName);
                             const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
                             console.log('result', result);
-                            console.log('paramDetails[param.parameterName]', paramDetails[param.parameterName]);
-                            if (result.length) {
-                                console.log('result param', result[0][param.parameterName])
-                                paramDetails[param.parameterName] = result[0][param.parameterName]
+                            if (result.length && result[0].totalSum) {
+                                paramDetails[param.parameterName] = result[0].totalSum
                             }
                         }
                     }
@@ -274,15 +273,14 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                                 userId,
                                 limit: param.noOfRecords || null,
                                 startTime: param.startTime || null,
-                                endTime: param.endTime || null
+                                endTime: param.endTime || null,
+                                businessLogic : task.businessLogic
                             });
                             console.log('collectionName', collectionName);
                             const result = pipeline ? await userUpdateWalletCollection.aggregate(pipeline).toArray() : [];
                             console.log('result', result);
-                            console.log('paramDetails[param.parameterName]', paramDetails[param.parameterName]);
-                            console.log('result param', result[0][param.parameterName])
-                            if (result.length) {
-                                paramDetails[param.parameterName] = result[0][param.parameterName]
+                            if (result.length && result[0].totalSum) {
+                                paramDetails[param.parameterName] = result[0].totalSum
                             }
                         }
                     }
@@ -411,63 +409,56 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
     }
 
 
-    function getAggregateQuery({parameters, userId, limit, startTime, endTime}) {
+    function getAggregateQuery({parameters, userId, limit, startTime, endTime, businessLogic}) {
         if (!limit && !startTime && !endTime) {
-            // const oneShotConditions = parameters.map(param => {
-            //     if (param.incrementalType === 'one-shot') {
-            //         return {
-            //             $or: [
-            //                 { [`data.defaultParams.${param.parameterName}`]: param.value },
-            //                 { [`data.customParams.${param.parameterName}`]: param.value }
-            //             ]
-            //         };
-            //     }
-            //     return null;
-            // }).filter(Boolean);
-            //
-            // const sumLogic = parameters.map(param => {
-            //     if (param.incrementalType === 'cumulative') {
-            //         return {
-            //             $add: [
-            //                 { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
-            //                 { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
-            //             ]
-            //         };
-            //     }
-            //     return null;
-            // }).filter(Boolean);
-            //
-            // let initialMatch = {
-            //     userId: userId
-            // };
-            //
-            // if (oneShotConditions.length > 0) {
-            //     initialMatch.$and = [
-            //         { userId: userId },
-            //         { $or: oneShotConditions }
-            //     ];
-            // }
-            //
-            // return [
-            //     {
-            //         $match: initialMatch
-            //     },
-            //     {
-            //         $project: {
-            //             _id: 0,
-            //             sum: {
-            //                 $sum: sumLogic
-            //             }
-            //         }
-            //     },
-            //     {
-            //         $group: {
-            //             _id: null,
-            //             totalSum: { $sum: "$sum" }
-            //         }
-            //     }
-            // ];
-            console.log('Inside the no limit no start time and no end time');
+            function buildMatchExpression(condition) {
+                let expressions = [];
+
+                if (condition.all) {
+                    expressions = expressions.concat(condition.all.map(clause => {
+                        if (clause.all || clause.any) {
+                            return buildMatchExpression(clause);
+                        } else {
+                            return clauseToMatch(clause);
+                        }
+                    }));
+                }
+
+                if (condition.any) {
+                    expressions.push({
+                        $or: condition.any.map(clause => {
+                            if (clause.all || clause.any) {
+                                return buildMatchExpression(clause);
+                            } else {
+                                return clauseToMatch(clause);
+                            }
+                        })
+                    });
+                }
+
+                return expressions.length === 1 ? expressions[0] : { $and: expressions };
+            }
+
+            function clauseToMatch(clause) {
+                const incrementalType = parameters[clause.fact];
+                let expression = {};
+
+                if (incrementalType === "cumulative" && clause.operator === "greaterThanInclusive") {
+                    expression = {
+                        [`${clause.fact}Sum`]: { $gte: clause.value }
+                    };
+                } else {
+                    expression = {
+                        [clause.fact]: clause.value
+                    };
+                }
+
+                return expression;
+            }
+
+// Generate match conditions based on businessLogic
+            let matchConditions = buildMatchExpression(businessLogic);
+
             const oneShotConditions = parameters.map(param => {
                 if (param.incrementalType === 'one-shot') {
                     return {
@@ -480,15 +471,76 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                 return null;
             }).filter(Boolean);
 
-            const cumulativeProjections = parameters.filter(param => param.incrementalType === 'cumulative').reduce((acc, param) => {
-                acc[param.parameterName] = {
-                    $add: [
-                        { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
-                        { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
-                    ]
-                };
-                return acc;
-            }, {});
+            const sumLogic = parameters.map(param => {
+                if (param.incrementalType === 'cumulative') {
+                    return {
+                        $add: [
+                            { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
+                            { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
+                        ]
+                    };
+                }
+                return null;
+            }).filter(Boolean);
+
+            let initialMatch = {
+                userId: userId,
+                ...matchConditions
+            };
+
+            if (oneShotConditions.length > 0) {
+                if (initialMatch.$and) {
+                    initialMatch.$and.push({ $or: oneShotConditions });
+                } else {
+                    initialMatch.$and = [{ userId: userId }, { $or: oneShotConditions }];
+                }
+            }
+
+            return [
+                {
+                    $match: initialMatch
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        sum: {
+                            $sum: sumLogic
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        totalSum: { $sum: "$sum" }
+                    }
+                }
+            ];
+        }
+
+        if (limit) {
+            const oneShotConditions = parameters.map(param => {
+                if (param.incrementalType === 'one-shot') {
+                    return {
+                        $or: [
+                            { [`data.defaultParams.${param.parameterName}`]: param.value },
+                            { [`data.customParams.${param.parameterName}`]: param.value }
+                        ]
+                    };
+                }
+                return null;
+            }).filter(Boolean);
+
+            const sumLogic = parameters.map(param => {
+                if (param.incrementalType === 'cumulative') {
+                    return {
+                        $add: [
+                            { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
+                            { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
+                        ]
+                    };
+                }
+                return null;
+            }).filter(Boolean);
 
             let initialMatch = {
                 userId: userId
@@ -502,109 +554,58 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
             }
 
             return [
-                { $match: initialMatch },
-                { $project: cumulativeProjections },
+                {
+                    $match: initialMatch
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        sum: {
+                            $sum: sumLogic
+                        }
+                    }
+                },
+                {
+                    $sort: {_id: -1}
+                },
+                {
+                    $limit: limit
+                },
                 {
                     $group: {
                         _id: null,
-                        ...Object.keys(cumulativeProjections).reduce((acc, key) => {
-                            acc[key] = { $sum: `$${key}` };
-                            return acc;
-                        }, {})
+                        totalSum: { $sum: "$sum" }
                     }
                 }
             ];
-        }
 
-        // if (limit) {
-        //     const oneShotConditions = parameters.map(param => {
-        //         if (param.incrementalType === 'one-shot') {
-        //             return {
-        //                 $or: [
-        //                     { [`data.defaultParams.${param.parameterName}`]: param.value },
-        //                     { [`data.customParams.${param.parameterName}`]: param.value }
-        //                 ]
-        //             };
-        //         }
-        //         return null;
-        //     }).filter(Boolean);
-        //
-        //     const sumLogic = parameters.map(param => {
-        //         if (param.incrementalType === 'cumulative') {
-        //             return {
-        //                 $add: [
-        //                     { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
-        //                     { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
-        //                 ]
-        //             };
-        //         }
-        //         return null;
-        //     }).filter(Boolean);
-        //
-        //     let initialMatch = {
-        //         userId: userId
-        //     };
-        //
-        //     if (oneShotConditions.length > 0) {
-        //         initialMatch.$and = [
-        //             { userId: userId },
-        //             { $or: oneShotConditions }
-        //         ];
-        //     }
-        //
-        //     return [
-        //         {
-        //             $match: initialMatch
-        //         },
-        //         {
-        //             $project: {
-        //                 _id: 0,
-        //                 sum: {
-        //                     $sum: sumLogic
-        //                 }
-        //             }
-        //         },
-        //         {
-        //             $sort: {_id: -1}
-        //         },
-        //         {
-        //             $limit: limit
-        //         },
-        //         {
-        //             $group: {
-        //                 _id: null,
-        //                 totalSum: { $sum: "$sum" }
-        //             }
-        //         }
-        //     ];
-        //
-        //
-        //     // return [
-        //     //     {
-        //     //         $match: {
-        //     //             userId: userId
-        //     //         }
-        //     //     },
-        //     //     {
-        //     //         $project: {
-        //     //             _id: 0,
-        //     //             sum: {$ifNull: [`$data.${param.parameterName}`, 0]}
-        //     //         }
-        //     //     },
-        //     //     {
-        //     //         $sort: {_id: -1}
-        //     //     },
-        //     //     {
-        //     //         $limit: limit
-        //     //     },
-        //     //     {
-        //     //         $group: {
-        //     //             _id: null,
-        //     //             totalSum: {$sum: "$sum"}
-        //     //         }
-        //     //     }
-        //     // ];
-        // }
+
+            // return [
+            //     {
+            //         $match: {
+            //             userId: userId
+            //         }
+            //     },
+            //     {
+            //         $project: {
+            //             _id: 0,
+            //             sum: {$ifNull: [`$data.${param.parameterName}`, 0]}
+            //         }
+            //     },
+            //     {
+            //         $sort: {_id: -1}
+            //     },
+            //     {
+            //         $limit: limit
+            //     },
+            //     {
+            //         $group: {
+            //             _id: null,
+            //             totalSum: {$sum: "$sum"}
+            //         }
+            //     }
+            // ];
+        }
 
         // if (startTime || endTime) {
         //     let dateFilter = {};
