@@ -516,95 +516,118 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
             ];
         }
 
-        // if (limit) {
-        //     const oneShotConditions = parameters.map(param => {
-        //         if (param.incrementalType === 'one-shot') {
-        //             return {
-        //                 $or: [
-        //                     { [`data.defaultParams.${param.parameterName}`]: param.value },
-        //                     { [`data.customParams.${param.parameterName}`]: param.value }
-        //                 ]
-        //             };
-        //         }
-        //         return null;
-        //     }).filter(Boolean);
-        //
-        //     const sumLogic = parameters.map(param => {
-        //         if (param.incrementalType === 'cumulative') {
-        //             return {
-        //                 $add: [
-        //                     { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
-        //                     { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
-        //                 ]
-        //             };
-        //         }
-        //         return null;
-        //     }).filter(Boolean);
-        //
-        //     let initialMatch = {
-        //         userId: userId
-        //     };
-        //
-        //     if (oneShotConditions.length > 0) {
-        //         initialMatch.$and = [
-        //             { userId: userId },
-        //             { $or: oneShotConditions }
-        //         ];
-        //     }
-        //
-        //     return [
-        //         {
-        //             $match: initialMatch
-        //         },
-        //         {
-        //             $project: {
-        //                 _id: 0,
-        //                 sum: {
-        //                     $sum: sumLogic
-        //                 }
-        //             }
-        //         },
-        //         {
-        //             $sort: {_id: -1}
-        //         },
-        //         {
-        //             $limit: limit
-        //         },
-        //         {
-        //             $group: {
-        //                 _id: null,
-        //                 totalSum: { $sum: "$sum" }
-        //             }
-        //         }
-        //     ];
-        //
-        //
-        //     // return [
-        //     //     {
-        //     //         $match: {
-        //     //             userId: userId
-        //     //         }
-        //     //     },
-        //     //     {
-        //     //         $project: {
-        //     //             _id: 0,
-        //     //             sum: {$ifNull: [`$data.${param.parameterName}`, 0]}
-        //     //         }
-        //     //     },
-        //     //     {
-        //     //         $sort: {_id: -1}
-        //     //     },
-        //     //     {
-        //     //         $limit: limit
-        //     //     },
-        //     //     {
-        //     //         $group: {
-        //     //             _id: null,
-        //     //             totalSum: {$sum: "$sum"}
-        //     //         }
-        //     //     }
-        //     // ];
-        // }
+        if (limit) {
+            // const oneShotConditions = parameters.map(param => {
+            //     if (param.incrementalType === 'one-shot') {
+            //         return {
+            //             $or: [
+            //                 { [`data.defaultParams.${param.parameterName}`]: param.value },
+            //                 { [`data.customParams.${param.parameterName}`]: param.value }
+            //             ]
+            //         };
+            //     }
+            //     return null;
+            // }).filter(Boolean);
+            //
+            // const sumLogic = parameters.map(param => {
+            //     if (param.incrementalType === 'cumulative') {
+            //         return {
+            //             $add: [
+            //                 { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
+            //                 { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
+            //             ]
+            //         };
+            //     }
+            //     return null;
+            // }).filter(Boolean);
+            //
+            // let initialMatch = {
+            //     userId: userId
+            // };
+            //
+            // if (oneShotConditions.length > 0) {
+            //     initialMatch.$and = [
+            //         { userId: userId },
+            //         { $or: oneShotConditions }
+            //     ];
+            // }
+            //
+            // return [
+            //     {
+            //         $match: initialMatch
+            //     },
+            //     {
+            //         $project: {
+            //             _id: 0,
+            //             sum: {
+            //                 $sum: sumLogic
+            //             }
+            //         }
+            //     },
+            //     {
+            //         $sort: {_id: -1}
+            //     },
+            //     {
+            //         $limit: limit
+            //     },
+            //     {
+            //         $group: {
+            //             _id: null,
+            //             totalSum: { $sum: "$sum" }
+            //         }
+            //     }
+            // ];
+            console.log('Inside the limit');
+            const oneShotConditions = parameters.map(param => {
+                if (param.incrementalType === 'one-shot') {
+                    return {
+                        $or: [
+                            { [`data.defaultParams.${param.parameterName}`]: param.value },
+                            { [`data.customParams.${param.parameterName}`]: param.value }
+                        ]
+                    };
+                }
+                return null;
+            }).filter(Boolean);
+
+            const cumulativeProjections = parameters.filter(param => param.incrementalType === 'cumulative').reduce((acc, param) => {
+                acc[param.parameterName] = {
+                    $add: [
+                        { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
+                        { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
+                    ]
+                };
+                return acc;
+            }, {});
+
+            let initialMatch = {
+                userId: userId
+            };
+
+            if (oneShotConditions.length > 0) {
+                initialMatch.$and = [
+                    { userId: userId },
+                    { $or: oneShotConditions }
+                ];
+            }
+
+            return [
+                { $match: initialMatch },
+                { $limit: limit },
+                { $project: cumulativeProjections },
+                {
+                    $group: {
+                        _id: null,
+                        ...Object.keys(cumulativeProjections).reduce((acc, key) => {
+                            acc[key] = { $sum: `$${key}` };
+                            return acc;
+                        }, {})
+                    }
+                }
+            ];
+
+
+        }
 
         // if (startTime || endTime) {
         //     let dateFilter = {};
