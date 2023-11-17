@@ -112,13 +112,13 @@ app.post('/test-run', async (req, res) => {
                 eventId: eventId, // Use the retrieved event's ID
                 projectId: projectId, // Use the provided projectId
                 $or: orQuery,
-                "parameters": {
-                    $elemMatch: {
-                        "parameterId": {
-                            $in: parameterIds
-                        }
-                    }
-                },
+                // "parameters": {
+                //     $elemMatch: {
+                //         "parameterId": {
+                //             $in: parameterIds
+                //         }
+                //     }
+                // },
             }).toArray();
         }
 
@@ -400,6 +400,9 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
         //     statusCode: 200,
         //     body: JSON.stringify({tasks}),
         // };
+    } catch (err) {
+      console.log('error', err);
+      return res.status(500).json({error : err});
     } finally {
         // Close Mongoose connection
         await client.close();

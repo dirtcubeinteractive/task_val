@@ -112,13 +112,13 @@ app.post('/test-run', async (req, res) => {
                 eventId: eventId, // Use the retrieved event's ID
                 projectId: projectId, // Use the provided projectId
                 $or: orQuery,
-                "parameters": {
-                    $elemMatch: {
-                        "parameterId": {
-                            $in: parameterIds
-                        }
-                    }
-                },
+                // "parameters": {
+                //     $elemMatch: {
+                //         "parameterId": {
+                //             $in: parameterIds
+                //         }
+                //     }
+                // },
             }).toArray();
         }
 
