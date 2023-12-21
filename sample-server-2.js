@@ -139,8 +139,20 @@ app.post('/test-run', async (req, res) => {
 
             if (!task.parameters || !task.parameters.length) {
                 console.log('task passed because no params found');
+
+                const dbTask = await sequelize.query(`select * from task where id=:taskId`, {
+                    replacements: {
+                        taskId: task.taskId
+                    },
+                    raw: true,
+                    nest: true
+                });
+
+                console.log('dbTask', dbTask[0]);
+                const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'completed' : 'pending';
+
                 await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
+values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
                     type: QueryTypes.INSERT,
                     nest: true
                 });
@@ -216,12 +228,12 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                             taskValidationInit = true
                             const userUpdateWalletCollection = db.collection(collectionName);
                             const pipeline = await getAggregateQuery({
-                                parameters : task.parameters,
+                                parameters: task.parameters,
                                 userId,
                                 limit: param.noOfRecords || null,
                                 startTime: param.startTime || null,
                                 endTime: param.endTime || null,
-                                businessLogic : task.businessLogic
+                                businessLogic: task.businessLogic
                             });
                             console.log('query', JSON.stringify(pipeline));
                             console.log('collectionName', collectionName);
@@ -269,12 +281,12 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
 
                             const userUpdateWalletCollection = db.collection(collectionName);
                             const pipeline = getAggregateQuery({
-                                parameters : task.parameters,
+                                parameters: task.parameters,
                                 userId,
                                 limit: param.noOfRecords || null,
                                 startTime: param.startTime || null,
                                 endTime: param.endTime || null,
-                                businessLogic : task.businessLogic
+                                businessLogic: task.businessLogic
                             });
                             console.log('collectionName', collectionName);
                             const result = pipeline ? await userUpdateWalletCollection.aggregate(pipeline).toArray() : [];
@@ -306,9 +318,20 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                     },
                     onSuccess: async () => {
                         if (shouldEvaluate) {
+                            const dbTask = await sequelize.query(`select * from task where id=:taskId`, {
+                                replacements: {
+                                    taskId: task.taskId
+                                },
+                                raw: true,
+                                nest: true
+                            });
+
+                            console.log('dbTask', dbTask[0]);
+
+                            const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'completed' : 'pending';
                             console.log('task passed');
                             await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
+values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
                                 type: QueryTypes.INSERT,
                                 nest: true
                             });
@@ -356,16 +379,27 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                                     console.log('noOfTasksCompleted', noOfTasksCompleted[0].count);
                                     console.log('noOfConfigTasks', noOfConfigTasks.length);
 
-                                    console.log('typeof noOfTasksCompleted[0].count' ,typeof noOfTasksCompleted[0].count);
+                                    console.log('typeof noOfTasksCompleted[0].count', typeof noOfTasksCompleted[0].count);
                                     console.log('converted', typeof Number(noOfTasksCompleted[0].count));
                                     console.log('typeof noOfConfigTasks', typeof noOfConfigTasks.length);
 
                                     console.log('truth', Number(noOfTasksCompleted[0].count) >= noOfConfigTasks.length);
 
                                     if (Number(noOfTasksCompleted[0].count) >= noOfConfigTasks.length) {
+                                        const dbTaskGroup = await sequelize.query(`select * from task_bus where id=:taskGroupId`, {
+                                            replacements: {
+                                                taskGroupId: task.taskGroupId
+                                            },
+                                            raw: true,
+                                            nest: true
+                                        });
+
+                                        console.log('dbTaskGroup', dbTaskGroup[0]);
+                                        const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'completed' : 'pending';
+
                                         // Task group is completed
                                         await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-                     values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
+                     values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
                                             type: QueryTypes.INSERT,
                                             nest: true
                                         });
@@ -401,8 +435,8 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
         //     body: JSON.stringify({tasks}),
         // };
     } catch (err) {
-      console.log('error', err);
-      return res.status(500).json({error : err});
+        console.log('error', err);
+        return res.status(500).json({error: err});
     } finally {
         // Close Mongoose connection
         await client.close();
@@ -439,7 +473,7 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                     });
                 }
 
-                return expressions.length === 1 ? expressions[0] : { $and: expressions };
+                return expressions.length === 1 ? expressions[0] : {$and: expressions};
             }
 
             function clauseToMatch(clause) {
@@ -448,7 +482,7 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
 
                 if (incrementalType === "cumulative" && clause.operator === "greaterThanInclusive") {
                     expression = {
-                        [`${clause.fact}Sum`]: { $gte: clause.value }
+                        [`${clause.fact}Sum`]: {$gte: clause.value}
                     };
                 } else {
                     expression = {
@@ -466,8 +500,8 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                 if (param.incrementalType === 'one-shot') {
                     return {
                         $or: [
-                            { [`data.defaultParams.${param.parameterName}`]: param.value },
-                            { [`data.customParams.${param.parameterName}`]: param.value }
+                            {[`data.defaultParams.${param.parameterName}`]: param.value},
+                            {[`data.customParams.${param.parameterName}`]: param.value}
                         ]
                     };
                 }
@@ -478,8 +512,8 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                 if (param.incrementalType === 'cumulative') {
                     return {
                         $add: [
-                            { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
-                            { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
+                            {$ifNull: [`$data.defaultParams.${param.parameterName}`, 0]},
+                            {$ifNull: [`$data.customParams.${param.parameterName}`, 0]}
                         ]
                     };
                 }
@@ -493,9 +527,9 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
 
             if (oneShotConditions.length > 0) {
                 if (initialMatch.$and) {
-                    initialMatch.$and.push({ $or: oneShotConditions });
+                    initialMatch.$and.push({$or: oneShotConditions});
                 } else {
-                    initialMatch.$and = [{ userId: userId }, { $or: oneShotConditions }];
+                    initialMatch.$and = [{userId: userId}, {$or: oneShotConditions}];
                 }
             }
 
@@ -514,7 +548,7 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                 {
                     $group: {
                         _id: null,
-                        totalSum: { $sum: "$sum" }
+                        totalSum: {$sum: "$sum"}
                     }
                 }
             ];
@@ -525,8 +559,8 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                 if (param.incrementalType === 'one-shot') {
                     return {
                         $or: [
-                            { [`data.defaultParams.${param.parameterName}`]: param.value },
-                            { [`data.customParams.${param.parameterName}`]: param.value }
+                            {[`data.defaultParams.${param.parameterName}`]: param.value},
+                            {[`data.customParams.${param.parameterName}`]: param.value}
                         ]
                     };
                 }
@@ -537,8 +571,8 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                 if (param.incrementalType === 'cumulative') {
                     return {
                         $add: [
-                            { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
-                            { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
+                            {$ifNull: [`$data.defaultParams.${param.parameterName}`, 0]},
+                            {$ifNull: [`$data.customParams.${param.parameterName}`, 0]}
                         ]
                     };
                 }
@@ -551,8 +585,8 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
 
             if (oneShotConditions.length > 0) {
                 initialMatch.$and = [
-                    { userId: userId },
-                    { $or: oneShotConditions }
+                    {userId: userId},
+                    {$or: oneShotConditions}
                 ];
             }
 
@@ -577,7 +611,7 @@ values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', '${tas
                 {
                     $group: {
                         _id: null,
-                        totalSum: { $sum: "$sum" }
+                        totalSum: {$sum: "$sum"}
                     }
                 }
             ];
