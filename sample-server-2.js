@@ -149,7 +149,7 @@ app.post('/test-run', async (req, res) => {
                 });
 
                 console.log('dbTask', dbTask[0]);
-                const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'completed' : 'pending';
+                const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
 
                 await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
 values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
@@ -328,7 +328,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                             console.log('dbTask', dbTask[0]);
 
-                            const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'completed' : 'pending';
+                            const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
                             console.log('task passed');
                             await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
 values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
@@ -395,7 +395,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         });
 
                                         console.log('dbTaskGroup', dbTaskGroup[0]);
-                                        const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'completed' : 'pending';
+                                        const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
 
                                         // Task group is completed
                                         await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
