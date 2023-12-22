@@ -140,7 +140,7 @@ app.post('/test-run', async (req, res) => {
             if (!task.parameters || !task.parameters.length) {
                 console.log('task passed because no params found');
 
-                const dbTask = await sequelize.query(`select * from task where id=:taskId`, {
+                const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
                     replacements: {
                         taskId: task.taskId
                     },
@@ -318,7 +318,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                     },
                     onSuccess: async () => {
                         if (shouldEvaluate) {
-                            const dbTask = await sequelize.query(`select * from task where id=:taskId`, {
+                            const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
                                 replacements: {
                                     taskId: task.taskId
                                 },
