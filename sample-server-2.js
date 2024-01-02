@@ -426,7 +426,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     console.log('truth', Number(noOfTasksCompleted[0].count) >= noOfConfigTasks.length);
 
                                     if (Number(noOfTasksCompleted[0].count) >= noOfConfigTasks.length) {
-                                        const dbTaskGroup = await sequelize.query(`select * from task_bus where id=:taskGroupId`, {
+                                        const dbTaskGroup = await sequelize.query(`select * from task_groups where id=:taskGroupId`, {
                                             replacements: {
                                                 taskGroupId: task.taskGroupId
                                             },
