@@ -329,12 +329,52 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             console.log('dbTask', dbTask[0]);
 
                             const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                            const rewardMode = dbTask[0].reward_claim === 'automatic' ? 'server' : 'client';
+                            const rewardStatus = dbTask[0].reward_claim === 'automatic' ? 'completed' : 'pending';
                             console.log('task passed');
                             await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
 values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
                                 type: QueryTypes.INSERT,
                                 nest: true
                             });
+
+                            const dbTaskRewardMapping = await sequelize.query(`select * from task_rewards
+                                where task_id=:taskId;`, {
+                                replacements: {
+                                    taskId: task.taskId
+                                },
+                                raw: true,
+                                nest: true
+                            });
+
+                            for (val of dbTaskRewardMapping) {
+                                await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
+                                        item_id, currency_id, progression_marker_id, task_id,
+                            task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
+                            active, archive, created_at, updated_at)
+                     values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
+                      :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
+                                    {
+                                        replacements : {
+                                            amount : val.quantity,
+                                            rewardSetId : val.reward_set_id,
+                                            bundleId : val.bundle_id,
+                                            itemId : val.item_id,
+                                            currencyId : val.currency_id,
+                                            progressionMarkerId : val.progression_marker_id,
+                                            taskId : task.taskId,
+                                            taskGroupId : null,
+                                            levelSystemId : null,
+                                            levelSystemLevelId : null,
+                                            projectId : projectId,
+                                            userId : userId,
+                                            mode : rewardMode,
+                                            status : rewardStatus
+                                        },
+                                        type: QueryTypes.INSERT,
+                                        nest: true
+                                    });
+                            }
 
                             await utsc.insertOne({
                                 taskId: task.taskId,
@@ -396,6 +436,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                                         console.log('dbTaskGroup', dbTaskGroup[0]);
                                         const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                                        const taskBusRewardMode = dbTaskGroup[0].reward_claim === 'automatic' ? 'server' : 'client';
+                                        const taskBusRewardStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'completed' : 'pending';
 
                                         // Task group is completed
                                         await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
@@ -403,6 +445,44 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                             type: QueryTypes.INSERT,
                                             nest: true
                                         });
+
+                                        const dbTaskGroupRewardMapping = await sequelize.query(`select * from task_group_rewards
+                                            where task_group_id=:taskGroupId;`, {
+                                            replacements: {
+                                                taskGroupId: task.taskGroupId
+                                            },
+                                            raw: true,
+                                            nest: true
+                                        });
+
+                                        for (val of dbTaskGroupRewardMapping) {
+                                            await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
+                                        item_id, currency_id, progression_marker_id, task_id,
+                            task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
+                            active, archive, created_at, updated_at)
+                     values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
+                      :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
+                                                {
+                                                    replacements : {
+                                                        amount : val.quantity,
+                                                        rewardSetId : val.reward_set_id,
+                                                        bundleId : val.bundle_id,
+                                                        itemId : val.item_id,
+                                                        currencyId : val.currency_id,
+                                                        progressionMarkerId : val.progression_marker_id,
+                                                        taskId : null,
+                                                        taskGroupId : task.taskGroupId,
+                                                        levelSystemId : null,
+                                                        levelSystemLevelId : null,
+                                                        projectId : projectId,
+                                                        userId : userId,
+                                                        mode : taskBusRewardMode,
+                                                        status : taskBusRewardStatus
+                                                    },
+                                                    type: QueryTypes.INSERT,
+                                                    nest: true
+                                                });
+                                        }
 
                                         console.log('Making an api call after task group evaluate');
 
@@ -447,6 +527,9 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
 
     function getAggregateQuery({parameters, userId, limit, startTime, endTime, businessLogic}) {
+        console.log('limit', limit);
+        console.log('startTime', startTime);
+        console.log('endTime', endTime);
         if (!limit && !startTime && !endTime) {
             function buildMatchExpression(condition) {
                 let expressions = [];
