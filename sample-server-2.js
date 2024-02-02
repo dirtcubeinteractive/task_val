@@ -28,7 +28,7 @@ app.post('/test-run', async (req, res) => {
         'gamehub_admin',
         'Dirtcube2019',
         {
-            host: 'gamehubdev.cx8tjkw161jy.ap-south-1.rds.amazonaws.com',
+            host: 'specterapp-dev.cx8tjkw161jy.ap-south-1.rds.amazonaws.com',
             dialect: 'postgres',
             port: 5432,
             logging: false,
@@ -131,7 +131,7 @@ app.post('/test-run', async (req, res) => {
             }).toArray();
         }
 
-        console.log('tasks', tasks);
+        // console.log('tasks', tasks);
 
         for (let task of tasks) {
             const utsc = db.collection('usertaskstatus');
@@ -207,8 +207,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                 let shouldEvaluate = true
 
                 for (let param of task.parameters) {
-                    console.log('task', task.taskId);
-                    console.log('task.eventId', task.eventId);
                     console.log('param', param);
                     // Task is one time
                     if (!task.isRecurring) {
@@ -227,7 +225,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         if ((!dbTaskBus || !dbTaskBus.length) && param.incrementalType === 'cumulative') {
                             taskValidationInit = true
                             const userUpdateWalletCollection = db.collection(collectionName);
-                            const pipeline = await getAggregateQuery({
+                            const pipeline = getAggregateQuery({
                                 parameters: task.parameters,
                                 userId,
                                 limit: param.noOfRecords || null,
@@ -236,11 +234,11 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 businessLogic: task.businessLogic
                             });
                             console.log('query', JSON.stringify(pipeline));
-                            console.log('collectionName', collectionName);
                             const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
                             console.log('result', result);
-                            if (result.length && result[0].totalSum) {
-                                paramDetails[param.parameterName] = result[0].totalSum
+
+                            if (result.length) {
+                                paramDetails[param.parameterName] = result[0][param.parameterName + "Sum"]
                             }
                         }
                     }
@@ -338,43 +336,43 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 nest: true
                             });
 
-                            const dbTaskRewardMapping = await sequelize.query(`select * from task_rewards
-                                where task_id=:taskId;`, {
-                                replacements: {
-                                    taskId: task.taskId
-                                },
-                                raw: true,
-                                nest: true
-                            });
+                            // const dbTaskRewardMapping = await sequelize.query(`select * from task_rewards
+                            //     where task_id=:taskId;`, {
+                            //     replacements: {
+                            //         taskId: task.taskId
+                            //     },
+                            //     raw: true,
+                            //     nest: true
+                            // });
 
-                            for (val of dbTaskRewardMapping) {
-                                await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
-                                        item_id, currency_id, progression_marker_id, task_id,
-                            task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
-                            active, archive, created_at, updated_at)
-                     values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
-                      :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
-                                    {
-                                        replacements : {
-                                            amount : val.quantity,
-                                            rewardSetId : val.reward_set_id,
-                                            bundleId : val.bundle_id,
-                                            itemId : val.item_id,
-                                            currencyId : val.currency_id,
-                                            progressionMarkerId : val.progression_marker_id,
-                                            taskId : task.taskId,
-                                            taskGroupId : null,
-                                            levelSystemId : null,
-                                            levelSystemLevelId : null,
-                                            projectId : projectId,
-                                            userId : userId,
-                                            mode : rewardMode,
-                                            status : rewardStatus
-                                        },
-                                        type: QueryTypes.INSERT,
-                                        nest: true
-                                    });
-                            }
+                            // for (val of dbTaskRewardMapping) {
+                     //            await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
+                     //                    item_id, currency_id, progression_marker_id, task_id,
+                     //        task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
+                     //        active, archive, created_at, updated_at)
+                     // values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
+                     //  :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
+                     //                {
+                     //                    replacements : {
+                     //                        amount : val.quantity,
+                     //                        rewardSetId : val.reward_set_id,
+                     //                        bundleId : val.bundle_id,
+                     //                        itemId : val.item_id,
+                     //                        currencyId : val.currency_id,
+                     //                        progressionMarkerId : val.progression_marker_id,
+                     //                        taskId : task.taskId,
+                     //                        taskGroupId : null,
+                     //                        levelSystemId : null,
+                     //                        levelSystemLevelId : null,
+                     //                        projectId : projectId,
+                     //                        userId : userId,
+                     //                        mode : rewardMode,
+                     //                        status : rewardStatus
+                     //                    },
+                     //                    type: QueryTypes.INSERT,
+                     //                    nest: true
+                     //                });
+                     //        }
 
                             await utsc.insertOne({
                                 taskId: task.taskId,
@@ -527,9 +525,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
 
     function getAggregateQuery({parameters, userId, limit, startTime, endTime, businessLogic}) {
-        console.log('limit', limit);
-        console.log('startTime', startTime);
-        console.log('endTime', endTime);
         if (!limit && !startTime && !endTime) {
             function buildMatchExpression(condition) {
                 let expressions = [];
@@ -560,263 +555,372 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
             }
 
             function clauseToMatch(clause) {
-                const incrementalType = parameters[clause.fact];
+                const param = parameters.find(p => p.parameterName === clause.fact);
                 let expression = {};
 
-                if (incrementalType === "cumulative" && clause.operator === "greaterThanInclusive") {
-                    expression = {
-                        [`${clause.fact}Sum`]: {$gte: clause.value}
-                    };
+                if (param.incrementalType === "cumulative" && clause.operator === "greaterThanInclusive") {
+                    expression = { fact: clause.fact, operator: clause.operator, value: clause.value };
                 } else {
                     expression = {
-                        [clause.fact]: clause.value
+                        $or: [
+                            { [`data.defaultParams.${clause.fact}`]: clause.value },
+                            { [`data.customParams.${clause.fact}`]: clause.value }
+                        ]
                     };
                 }
-
                 return expression;
             }
 
-// Generate match conditions based on businessLogic
             let matchConditions = buildMatchExpression(businessLogic);
+            matchConditions = Array.isArray(matchConditions) ? matchConditions : [matchConditions];
 
-            const oneShotConditions = parameters.map(param => {
-                if (param.incrementalType === 'one-shot') {
-                    return {
-                        $or: [
-                            {[`data.defaultParams.${param.parameterName}`]: param.value},
-                            {[`data.customParams.${param.parameterName}`]: param.value}
-                        ]
-                    };
-                }
-                return null;
-            }).filter(Boolean);
+            let initialMatchStage = { $match: { userId: userId } };
 
-            const sumLogic = parameters.map(param => {
-                if (param.incrementalType === 'cumulative') {
-                    return {
-                        $add: [
-                            {$ifNull: [`$data.defaultParams.${param.parameterName}`, 0]},
-                            {$ifNull: [`$data.customParams.${param.parameterName}`, 0]}
-                        ]
-                    };
-                }
-                return null;
-            }).filter(Boolean);
-
-            let initialMatch = {
-                userId: userId,
-                ...matchConditions
-            };
-
-            if (oneShotConditions.length > 0) {
-                if (initialMatch.$and) {
-                    initialMatch.$and.push({$or: oneShotConditions});
-                } else {
-                    initialMatch.$and = [{userId: userId}, {$or: oneShotConditions}];
-                }
-            }
-
-            return [
-                {
-                    $match: initialMatch
-                },
-                {
-                    $project: {
-                        _id: 0,
-                        sum: {
-                            $sum: sumLogic
-                        }
-                    }
-                },
-                {
-                    $group: {
-                        _id: null,
-                        totalSum: {$sum: "$sum"}
-                    }
-                }
-            ];
-        }
-
-        if (limit) {
-            const oneShotConditions = parameters.map(param => {
-                if (param.incrementalType === 'one-shot') {
-                    return {
-                        $or: [
-                            {[`data.defaultParams.${param.parameterName}`]: param.value},
-                            {[`data.customParams.${param.parameterName}`]: param.value}
-                        ]
-                    };
-                }
-                return null;
-            }).filter(Boolean);
-
-            const sumLogic = parameters.map(param => {
-                if (param.incrementalType === 'cumulative') {
-                    return {
-                        $add: [
-                            {$ifNull: [`$data.defaultParams.${param.parameterName}`, 0]},
-                            {$ifNull: [`$data.customParams.${param.parameterName}`, 0]}
-                        ]
-                    };
-                }
-                return null;
-            }).filter(Boolean);
-
-            let initialMatch = {
-                userId: userId
-            };
-
-            if (oneShotConditions.length > 0) {
-                initialMatch.$and = [
-                    {userId: userId},
-                    {$or: oneShotConditions}
-                ];
-            }
-
-            return [
-                {
-                    $match: initialMatch
-                },
-                {
-                    $project: {
-                        _id: 0,
-                        sum: {
-                            $sum: sumLogic
-                        }
-                    }
-                },
-                {
-                    $sort: {_id: -1}
-                },
-                {
-                    $limit: limit
-                },
-                {
-                    $group: {
-                        _id: null,
-                        totalSum: {$sum: "$sum"}
-                    }
-                }
-            ];
-
-
-            // return [
-            //     {
-            //         $match: {
-            //             userId: userId
-            //         }
-            //     },
-            //     {
-            //         $project: {
-            //             _id: 0,
-            //             sum: {$ifNull: [`$data.${param.parameterName}`, 0]}
-            //         }
-            //     },
-            //     {
-            //         $sort: {_id: -1}
-            //     },
-            //     {
-            //         $limit: limit
-            //     },
-            //     {
-            //         $group: {
-            //             _id: null,
-            //             totalSum: {$sum: "$sum"}
-            //         }
-            //     }
-            // ];
-        }
-
-        // if (startTime || endTime) {
-        //     let dateFilter = {};
-        //     if (startTime) {
-        //         dateFilter.$gte = new Date(startTime);
-        //     }
-        //     if (endTime) {
-        //         dateFilter.$lte = new Date(endTime);
-        //     }
-        //
-        //     console.log('dateFilter', dateFilter);
-        //
-        //
-        //     let matchStage = {
-        //         $match: {
-        //             userId: userId
-        //         }
-        //     };
-        //
-        //     const pipeline = [
-        //         matchStage,
-        //         {
-        //             $unwind: "$parameters"
-        //         },
-        //         {
-        //             $match: {
-        //                 "parameters.parameterName": param.parameterName
-        //             }
-        //         }
-        //     ];
-        //
-        //     if (Object.keys(dateFilter).length > 0) {
-        //         pipeline.push({
-        //             $match: {
-        //                 createdAt: dateFilter
-        //             }
-        //         });
-        //     }
-        //
-        //     pipeline.push(
-        //         {
-        //             $project: {
-        //                 _id: 0,
-        //                 sum: {$ifNull: [`$parameters.${param.parameterName}`, 0]}
-        //             }
-        //         },
-        //         {
-        //             $group: {
-        //                 _id: null,
-        //                 totalSum: {$sum: "$sum"}
-        //             }
-        //         }
-        //     );
-        //     return pipeline
-        // }
-
-        if (startTime || endTime) {
-            let dateFilter = {};
-            if (startTime) {
-                dateFilter.$gte = new Date(startTime);
-            }
-            if (endTime) {
-                dateFilter.$lte = new Date(endTime);
-            }
-
-            console.log('dateFilter', dateFilter);
-
-            let matchStage = {
-                $match: {
-                    userId: userId,
-                    createdAt: dateFilter  // Added date filter here
+            let groupStage = {
+                $group: {
+                    _id: null,
+                    ...parameters.filter(p => p.incrementalType === 'cumulative').reduce((acc, param) => {
+                        acc[param.parameterName + "Sum"] = {
+                            $sum: {
+                                $add: [
+                                    { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
+                                    { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
+                                ]
+                            }
+                        };
+                        return acc;
+                    }, {})
                 }
             };
 
-            const pipeline = [
-                matchStage,
-                {
-                    $project: {
-                        _id: 0,
-                        sum: {$ifNull: [`$data.${param.parameterName}`, 0]}  // Adjusted field name
-                    }
-                },
-                {
-                    $group: {
-                        _id: null,
-                        totalSum: {$sum: "$sum"}
-                    }
+            let projectStage = {
+                $project: {
+                    _id: 0,
+                    ...parameters.filter(p => p.incrementalType === 'cumulative').reduce((acc, param) => {
+                        acc[param.parameterName + "Sum"] = 1;
+                        return acc;
+                    }, {})
                 }
-            ];
-            console.log('query', JSON.stringify(pipeline));
-            return pipeline
+            };
+
+            let pipeline = [initialMatchStage, groupStage, projectStage];
+
+            return pipeline;
+
+
+//             function buildMatchExpression(condition) {
+//                 let expressions = [];
+//
+//                 if (condition.all) {
+//                     expressions = expressions.concat(condition.all.map(clause => {
+//                         if (clause.all || clause.any) {
+//                             return buildMatchExpression(clause);
+//                         } else {
+//                             return clauseToMatch(clause);
+//                         }
+//                     }));
+//                 }
+//
+//                 if (condition.any) {
+//                     expressions.push({
+//                         $or: condition.any.map(clause => {
+//                             if (clause.all || clause.any) {
+//                                 return buildMatchExpression(clause);
+//                             } else {
+//                                 return clauseToMatch(clause);
+//                             }
+//                         })
+//                     });
+//                 }
+//
+//                 return expressions.length === 1 ? expressions[0] : {$and: expressions};
+//             }
+//
+//             function clauseToMatch(clause) {
+//                 // const incrementalType = parameters[clause.fact];
+//                 // let expression = {};
+//                 //
+//                 // if (incrementalType === "cumulative" && clause.operator === "greaterThanInclusive") {
+//                 //     expression = {
+//                 //         [`${clause.fact}Sum`]: {$gte: clause.value}
+//                 //     };
+//                 // } else {
+//                 //     expression = {
+//                 //         [clause.fact]: clause.value
+//                 //     };
+//                 // }
+//                 //
+//                 // return expression;
+//                 const incrementalType = parameters.find(p => p.parameterName === clause.fact).incrementalType;
+//                 let expression = {};
+//
+//                 // Adjusted to handle cumulative parameters correctly
+//                 if (incrementalType === "cumulative" && clause.operator === "greaterThanInclusive") {
+//                     expression = {
+//                         $gte: [
+//                             { $sum: [
+//                                     { $ifNull: [`$data.defaultParams.${clause.fact}`, 0] },
+//                                     { $ifNull: [`$data.customParams.${clause.fact}`, 0] }
+//                                 ]},
+//                             clause.value
+//                         ]
+//                     };
+//                 } else {
+//                     // Adjust for parameters within defaultParams or customParams
+//                     expression = {
+//                         $or: [
+//                             { [`data.defaultParams.${clause.fact}`]: clause.value },
+//                             { [`data.customParams.${clause.fact}`]: clause.value }
+//                         ]
+//                     };
+//                 }
+//
+//                 return expression;
+//             }
+//
+// // Generate match conditions based on businessLogic
+//             let matchConditions = buildMatchExpression(businessLogic);
+//
+//             const oneShotConditions = parameters.map(param => {
+//                 if (param.incrementalType === 'one-shot') {
+//                     return {
+//                         $or: [
+//                             {[`data.defaultParams.${param.parameterName}`]: param.value},
+//                             {[`data.customParams.${param.parameterName}`]: param.value}
+//                         ]
+//                     };
+//                 }
+//                 return null;
+//             }).filter(Boolean);
+//
+//             const sumLogic = parameters.map(param => {
+//                 if (param.incrementalType === 'cumulative') {
+//                     return {
+//                         $add: [
+//                             {$ifNull: [`$data.defaultParams.${param.parameterName}`, 0]},
+//                             {$ifNull: [`$data.customParams.${param.parameterName}`, 0]}
+//                         ]
+//                     };
+//                 }
+//                 return null;
+//             }).filter(Boolean);
+//
+//             let initialMatch = {
+//                 userId: userId,
+//                 ...matchConditions
+//             };
+//
+//             if (oneShotConditions.length > 0) {
+//                 if (initialMatch.$and) {
+//                     initialMatch.$and.push({$or: oneShotConditions});
+//                 } else {
+//                     initialMatch.$and = [{userId: userId}, {$or: oneShotConditions}];
+//                 }
+//             }
+//
+//             return [
+//                 {
+//                     $match: initialMatch
+//                 },
+//                 {
+//                     $project: {
+//                         _id: 0,
+//                         sum: {
+//                             $sum: sumLogic
+//                         }
+//                     }
+//                 },
+//                 {
+//                     $group: {
+//                         _id: null,
+//                         totalSum: {$sum: "$sum"}
+//                     }
+//                 }
+//             ];
         }
+
+
     }
 })
+
+// if (limit) {
+//     const oneShotConditions = parameters.map(param => {
+//         if (param.incrementalType === 'one-shot') {
+//             return {
+//                 $or: [
+//                     {[`data.defaultParams.${param.parameterName}`]: param.value},
+//                     {[`data.customParams.${param.parameterName}`]: param.value}
+//                 ]
+//             };
+//         }
+//         return null;
+//     }).filter(Boolean);
+//
+//     const sumLogic = parameters.map(param => {
+//         if (param.incrementalType === 'cumulative') {
+//             return {
+//                 $add: [
+//                     {$ifNull: [`$data.defaultParams.${param.parameterName}`, 0]},
+//                     {$ifNull: [`$data.customParams.${param.parameterName}`, 0]}
+//                 ]
+//             };
+//         }
+//         return null;
+//     }).filter(Boolean);
+//
+//     let initialMatch = {
+//         userId: userId
+//     };
+//
+//     if (oneShotConditions.length > 0) {
+//         initialMatch.$and = [
+//             {userId: userId},
+//             {$or: oneShotConditions}
+//         ];
+//     }
+//
+//     return [
+//         {
+//             $match: initialMatch
+//         },
+//         {
+//             $project: {
+//                 _id: 0,
+//                 sum: {
+//                     $sum: sumLogic
+//                 }
+//             }
+//         },
+//         {
+//             $sort: {_id: -1}
+//         },
+//         {
+//             $limit: limit
+//         },
+//         {
+//             $group: {
+//                 _id: null,
+//                 totalSum: {$sum: "$sum"}
+//             }
+//         }
+//     ];
+//
+//
+//     // return [
+//     //     {
+//     //         $match: {
+//     //             userId: userId
+//     //         }
+//     //     },
+//     //     {
+//     //         $project: {
+//     //             _id: 0,
+//     //             sum: {$ifNull: [`$data.${param.parameterName}`, 0]}
+//     //         }
+//     //     },
+//     //     {
+//     //         $sort: {_id: -1}
+//     //     },
+//     //     {
+//     //         $limit: limit
+//     //     },
+//     //     {
+//     //         $group: {
+//     //             _id: null,
+//     //             totalSum: {$sum: "$sum"}
+//     //         }
+//     //     }
+//     // ];
+// }
+//
+// // if (startTime || endTime) {
+// //     let dateFilter = {};
+// //     if (startTime) {
+// //         dateFilter.$gte = new Date(startTime);
+// //     }
+// //     if (endTime) {
+// //         dateFilter.$lte = new Date(endTime);
+// //     }
+// //
+// //     console.log('dateFilter', dateFilter);
+// //
+// //
+// //     let matchStage = {
+// //         $match: {
+// //             userId: userId
+// //         }
+// //     };
+// //
+// //     const pipeline = [
+// //         matchStage,
+// //         {
+// //             $unwind: "$parameters"
+// //         },
+// //         {
+// //             $match: {
+// //                 "parameters.parameterName": param.parameterName
+// //             }
+// //         }
+// //     ];
+// //
+// //     if (Object.keys(dateFilter).length > 0) {
+// //         pipeline.push({
+// //             $match: {
+// //                 createdAt: dateFilter
+// //             }
+// //         });
+// //     }
+// //
+// //     pipeline.push(
+// //         {
+// //             $project: {
+// //                 _id: 0,
+// //                 sum: {$ifNull: [`$parameters.${param.parameterName}`, 0]}
+// //             }
+// //         },
+// //         {
+// //             $group: {
+// //                 _id: null,
+// //                 totalSum: {$sum: "$sum"}
+// //             }
+// //         }
+// //     );
+// //     return pipeline
+// // }
+//
+// if (startTime || endTime) {
+//     let dateFilter = {};
+//     if (startTime) {
+//         dateFilter.$gte = new Date(startTime);
+//     }
+//     if (endTime) {
+//         dateFilter.$lte = new Date(endTime);
+//     }
+//
+//     console.log('dateFilter', dateFilter);
+//
+//     let matchStage = {
+//         $match: {
+//             userId: userId,
+//             createdAt: dateFilter  // Added date filter here
+//         }
+//     };
+//
+//     const pipeline = [
+//         matchStage,
+//         {
+//             $project: {
+//                 _id: 0,
+//                 sum: {$ifNull: [`$data.${param.parameterName}`, 0]}  // Adjusted field name
+//             }
+//         },
+//         {
+//             $group: {
+//                 _id: null,
+//                 totalSum: {$sum: "$sum"}
+//             }
+//         }
+//     ];
+//     console.log('query', JSON.stringify(pipeline));
+//     return pipeline
+// }
