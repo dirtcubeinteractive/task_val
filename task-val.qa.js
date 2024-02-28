@@ -19,16 +19,14 @@ app.listen(4000, () => {
 app.post('/test-run', async (req, res) => {
     console.log('                  ')
     console.log('req.body', req.body);
-//     // Extract eventId and projectId from the event
     const {eventId, projectId, parameterIds, userId, paramDetails, levelSystemDetails, collectionName} = req.body; // You should replace this with the actual way to extract these values from the event
 
-    // Set up Sequelize connection
     const sequelize = new Sequelize(
-        'gamehub_dev',
-        'gamehub_admin',
+        'dirtcube-specterapp-quality-assurance',
+        'admin',
         'Dirtcube2019',
         {
-            host: 'specterapp-dev.cx8tjkw161jy.ap-south-1.rds.amazonaws.com',
+            host: '3.108.113.179',
             dialect: 'postgres',
             port: 5432,
             logging: false,
@@ -36,7 +34,8 @@ app.post('/test-run', async (req, res) => {
     );
 
     // Set up Mongoose connection
-    const mongoURI = 'mongodb+srv://yashh:Yashkadam1234@gamestarz-dev.2tsh39e.mongodb.net/gamehub_dev?retryWrites=true&w=majority'; // Replace placeholders
+    const mongoURI = 'mongodb://admin:Dirtcube2019@3.108.113.179:27017/dirtcube-specterapp-quality-assurance?retryWrites=true&w=majority'; // Replace placeholders
+
     const client = new MongoClient(mongoURI, {
         useNewUrlParser: true,
         useUnifiedTopology: true,
@@ -346,33 +345,33 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             // });
 
                             // for (val of dbTaskRewardMapping) {
-                     //            await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
-                     //                    item_id, currency_id, progression_marker_id, task_id,
-                     //        task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
-                     //        active, archive, created_at, updated_at)
-                     // values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
-                     //  :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
-                     //                {
-                     //                    replacements : {
-                     //                        amount : val.quantity,
-                     //                        rewardSetId : val.reward_set_id,
-                     //                        bundleId : val.bundle_id,
-                     //                        itemId : val.item_id,
-                     //                        currencyId : val.currency_id,
-                     //                        progressionMarkerId : val.progression_marker_id,
-                     //                        taskId : task.taskId,
-                     //                        taskGroupId : null,
-                     //                        levelSystemId : null,
-                     //                        levelSystemLevelId : null,
-                     //                        projectId : projectId,
-                     //                        userId : userId,
-                     //                        mode : rewardMode,
-                     //                        status : rewardStatus
-                     //                    },
-                     //                    type: QueryTypes.INSERT,
-                     //                    nest: true
-                     //                });
-                     //        }
+                            //            await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
+                            //                    item_id, currency_id, progression_marker_id, task_id,
+                            //        task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
+                            //        active, archive, created_at, updated_at)
+                            // values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
+                            //  :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
+                            //                {
+                            //                    replacements : {
+                            //                        amount : val.quantity,
+                            //                        rewardSetId : val.reward_set_id,
+                            //                        bundleId : val.bundle_id,
+                            //                        itemId : val.item_id,
+                            //                        currencyId : val.currency_id,
+                            //                        progressionMarkerId : val.progression_marker_id,
+                            //                        taskId : task.taskId,
+                            //                        taskGroupId : null,
+                            //                        levelSystemId : null,
+                            //                        levelSystemLevelId : null,
+                            //                        projectId : projectId,
+                            //                        userId : userId,
+                            //                        mode : rewardMode,
+                            //                        status : rewardStatus
+                            //                    },
+                            //                    type: QueryTypes.INSERT,
+                            //                    nest: true
+                            //                });
+                            //        }
 
                             await utsc.insertOne({
                                 taskId: task.taskId,
@@ -444,43 +443,43 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                             nest: true
                                         });
 
-                     //                    const dbTaskGroupRewardMapping = await sequelize.query(`select * from task_group_rewards
-                     //                        where task_group_id=:taskGroupId;`, {
-                     //                        replacements: {
-                     //                            taskGroupId: task.taskGroupId
-                     //                        },
-                     //                        raw: true,
-                     //                        nest: true
-                     //                    });
-                     //
-                     //                    for (val of dbTaskGroupRewardMapping) {
-                     //                        await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
-                     //                    item_id, currency_id, progression_marker_id, task_id,
-                     //        task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
-                     //        active, archive, created_at, updated_at)
-                     // values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
-                     //  :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
-                     //                            {
-                     //                                replacements : {
-                     //                                    amount : val.quantity,
-                     //                                    rewardSetId : val.reward_set_id,
-                     //                                    bundleId : val.bundle_id,
-                     //                                    itemId : val.item_id,
-                     //                                    currencyId : val.currency_id,
-                     //                                    progressionMarkerId : val.progression_marker_id,
-                     //                                    taskId : null,
-                     //                                    taskGroupId : task.taskGroupId,
-                     //                                    levelSystemId : null,
-                     //                                    levelSystemLevelId : null,
-                     //                                    projectId : projectId,
-                     //                                    userId : userId,
-                     //                                    mode : taskBusRewardMode,
-                     //                                    status : taskBusRewardStatus
-                     //                                },
-                     //                                type: QueryTypes.INSERT,
-                     //                                nest: true
-                     //                            });
-                     //                    }
+                                        //                    const dbTaskGroupRewardMapping = await sequelize.query(`select * from task_group_rewards
+                                        //                        where task_group_id=:taskGroupId;`, {
+                                        //                        replacements: {
+                                        //                            taskGroupId: task.taskGroupId
+                                        //                        },
+                                        //                        raw: true,
+                                        //                        nest: true
+                                        //                    });
+                                        //
+                                        //                    for (val of dbTaskGroupRewardMapping) {
+                                        //                        await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
+                                        //                    item_id, currency_id, progression_marker_id, task_id,
+                                        //        task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
+                                        //        active, archive, created_at, updated_at)
+                                        // values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
+                                        //  :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
+                                        //                            {
+                                        //                                replacements : {
+                                        //                                    amount : val.quantity,
+                                        //                                    rewardSetId : val.reward_set_id,
+                                        //                                    bundleId : val.bundle_id,
+                                        //                                    itemId : val.item_id,
+                                        //                                    currencyId : val.currency_id,
+                                        //                                    progressionMarkerId : val.progression_marker_id,
+                                        //                                    taskId : null,
+                                        //                                    taskGroupId : task.taskGroupId,
+                                        //                                    levelSystemId : null,
+                                        //                                    levelSystemLevelId : null,
+                                        //                                    projectId : projectId,
+                                        //                                    userId : userId,
+                                        //                                    mode : taskBusRewardMode,
+                                        //                                    status : taskBusRewardStatus
+                                        //                                },
+                                        //                                type: QueryTypes.INSERT,
+                                        //                                nest: true
+                                        //                            });
+                                        //                    }
 
                                         console.log('Making an api call after task group evaluate');
 
