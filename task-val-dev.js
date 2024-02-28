@@ -146,27 +146,37 @@ app.post('/test-run', async (req, res) => {
                     nest: true
                 });
 
-                console.log('dbTask', dbTask[0]);
-                const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-
-                await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
-                    type: QueryTypes.INSERT,
+                const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId`, {
+                    replacements: {
+                        taskId: task.taskId
+                    },
+                    raw: true,
                     nest: true
-                });
+                })
 
-                await utsc.insertOne({
-                    taskId: task.taskId,
-                    projectId: projectId,
-                    userId: userId,
-                    status: 'succeed'
-                });
+                console.log('dbTask', dbTask[0]);
 
-                await axios.post('http://localhost:3000/v1/task/grantReward', {
-                    userId: userId,
-                    eventId: eventId,
-                    taskId: task.taskId
-                });
+                if (!dbTaskBus.length) {
+                    const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                    await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
+                        type: QueryTypes.INSERT,
+                        nest: true
+                    });
+
+                    await utsc.insertOne({
+                        taskId: task.taskId,
+                        projectId: projectId,
+                        userId: userId,
+                        status: 'succeed'
+                    });
+
+                    await axios.post('http://localhost:3000/v1/task/grantReward', {
+                        userId: userId,
+                        eventId: eventId,
+                        taskId: task.taskId
+                    });
+                }
 
                 if (task.taskGroupId) {
                     const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}';`, {
@@ -185,18 +195,38 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                     console.log('noOfConfigTasks', noOfConfigTasks.length);
 
                     if (noOfTasksCompleted[0].count >= noOfConfigTasks.length) {
-                        // Task group is completed
-                        await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-                     values (uuid_generate_v4(), 'created', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
-                            type: QueryTypes.INSERT,
+                        const dbTaskGroup = await sequelize.query(`select * from task_groups where id=:taskGroupId`, {
+                            replacements: {
+                                taskGroupId: task.taskGroupId
+                            },
+                            raw: true,
                             nest: true
                         });
 
-                        await axios.post('http://localhost:3000/v1/task/grantReward', {
-                            userId: userId,
-                            eventId: eventId,
-                            taskGroupId: task.taskGroupId
-                        });
+                        const dbTaskGroupTaskBus = await sequelize.query(`select * from task_bus where task_group_id=:taskGroupId`, {
+                            replacements: {
+                                taskGroupId: task.taskGroupId
+                            },
+                            raw: true,
+                            nest: true
+                        })
+
+                        if (!dbTaskGroupTaskBus.length) {
+                            const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+
+                            // Task group is completed
+                            await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+                     values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
+                                type: QueryTypes.INSERT,
+                                nest: true
+                            });
+
+                            await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                userId: userId,
+                                eventId: eventId,
+                                taskGroupId: task.taskGroupId
+                            });
+                        }
                     }
                 }
             }
@@ -322,71 +352,81 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 nest: true
                             });
 
-                            console.log('dbTask', dbTask[0]);
-
-                            const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                            const rewardMode = dbTask[0].reward_claim === 'automatic' ? 'server' : 'client';
-                            const rewardStatus = dbTask[0].reward_claim === 'automatic' ? 'completed' : 'pending';
-                            console.log('task passed');
-                            await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
-                                type: QueryTypes.INSERT,
+                            const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId`, {
+                                replacements: {
+                                    taskId: task.taskId
+                                },
+                                raw: true,
                                 nest: true
-                            });
+                            })
 
-                            // const dbTaskRewardMapping = await sequelize.query(`select * from task_rewards
-                            //     where task_id=:taskId;`, {
-                            //     replacements: {
-                            //         taskId: task.taskId
-                            //     },
-                            //     raw: true,
-                            //     nest: true
-                            // });
+                            if (!dbTaskBus.length) {
+                                console.log('dbTask', dbTask[0]);
 
-                            // for (val of dbTaskRewardMapping) {
-                            //            await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
-                            //                    item_id, currency_id, progression_marker_id, task_id,
-                            //        task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
-                            //        active, archive, created_at, updated_at)
-                            // values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
-                            //  :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
-                            //                {
-                            //                    replacements : {
-                            //                        amount : val.quantity,
-                            //                        rewardSetId : val.reward_set_id,
-                            //                        bundleId : val.bundle_id,
-                            //                        itemId : val.item_id,
-                            //                        currencyId : val.currency_id,
-                            //                        progressionMarkerId : val.progression_marker_id,
-                            //                        taskId : task.taskId,
-                            //                        taskGroupId : null,
-                            //                        levelSystemId : null,
-                            //                        levelSystemLevelId : null,
-                            //                        projectId : projectId,
-                            //                        userId : userId,
-                            //                        mode : rewardMode,
-                            //                        status : rewardStatus
-                            //                    },
-                            //                    type: QueryTypes.INSERT,
-                            //                    nest: true
-                            //                });
-                            //        }
+                                const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                                const rewardMode = dbTask[0].reward_claim === 'automatic' ? 'server' : 'client';
+                                const rewardStatus = dbTask[0].reward_claim === 'automatic' ? 'completed' : 'pending';
+                                console.log('task passed');
+                                await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
+                                    type: QueryTypes.INSERT,
+                                    nest: true
+                                });
 
-                            await utsc.insertOne({
-                                taskId: task.taskId,
-                                projectId: projectId,
-                                userId: userId,
-                                status: 'succeed'
-                            });
+                                // const dbTaskRewardMapping = await sequelize.query(`select * from task_rewards
+                                //     where task_id=:taskId;`, {
+                                //     replacements: {
+                                //         taskId: task.taskId
+                                //     },
+                                //     raw: true,
+                                //     nest: true
+                                // });
+
+                                // for (val of dbTaskRewardMapping) {
+                                //            await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
+                                //                    item_id, currency_id, progression_marker_id, task_id,
+                                //        task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
+                                //        active, archive, created_at, updated_at)
+                                // values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
+                                //  :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
+                                //                {
+                                //                    replacements : {
+                                //                        amount : val.quantity,
+                                //                        rewardSetId : val.reward_set_id,
+                                //                        bundleId : val.bundle_id,
+                                //                        itemId : val.item_id,
+                                //                        currencyId : val.currency_id,
+                                //                        progressionMarkerId : val.progression_marker_id,
+                                //                        taskId : task.taskId,
+                                //                        taskGroupId : null,
+                                //                        levelSystemId : null,
+                                //                        levelSystemLevelId : null,
+                                //                        projectId : projectId,
+                                //                        userId : userId,
+                                //                        mode : rewardMode,
+                                //                        status : rewardStatus
+                                //                    },
+                                //                    type: QueryTypes.INSERT,
+                                //                    nest: true
+                                //                });
+                                //        }
+
+                                await utsc.insertOne({
+                                    taskId: task.taskId,
+                                    projectId: projectId,
+                                    userId: userId,
+                                    status: 'succeed'
+                                });
 
 
-                            console.log('                                       ');
-                            console.log('Making an api call after task is passed')
-                            await axios.post('http://localhost:3000/v1/task/grantReward', {
-                                userId: userId,
-                                eventId: eventId,
-                                taskId: task.taskId
-                            });
+                                console.log('                                       ');
+                                console.log('Making an api call after task is passed')
+                                await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                    userId: userId,
+                                    eventId: eventId,
+                                    taskId: task.taskId
+                                });
+                            }
 
                             if (task.taskGroupId) {
                                 console.log('                                       ');
@@ -430,63 +470,74 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                             nest: true
                                         });
 
-                                        console.log('dbTaskGroup', dbTaskGroup[0]);
-                                        const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                                        const taskBusRewardMode = dbTaskGroup[0].reward_claim === 'automatic' ? 'server' : 'client';
-                                        const taskBusRewardStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'completed' : 'pending';
-
-                                        // Task group is completed
-                                        await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-                     values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
-                                            type: QueryTypes.INSERT,
+                                        const dbTaskGroupTaskBus = await sequelize.query(`select * from task_bus where task_group_id=:taskGroupId`, {
+                                            replacements: {
+                                                taskGroupId: task.taskGroupId
+                                            },
+                                            raw: true,
                                             nest: true
-                                        });
+                                        })
 
-                                        //                    const dbTaskGroupRewardMapping = await sequelize.query(`select * from task_group_rewards
-                                        //                        where task_group_id=:taskGroupId;`, {
-                                        //                        replacements: {
-                                        //                            taskGroupId: task.taskGroupId
-                                        //                        },
-                                        //                        raw: true,
-                                        //                        nest: true
-                                        //                    });
-                                        //
-                                        //                    for (val of dbTaskGroupRewardMapping) {
-                                        //                        await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
-                                        //                    item_id, currency_id, progression_marker_id, task_id,
-                                        //        task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
-                                        //        active, archive, created_at, updated_at)
-                                        // values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
-                                        //  :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
-                                        //                            {
-                                        //                                replacements : {
-                                        //                                    amount : val.quantity,
-                                        //                                    rewardSetId : val.reward_set_id,
-                                        //                                    bundleId : val.bundle_id,
-                                        //                                    itemId : val.item_id,
-                                        //                                    currencyId : val.currency_id,
-                                        //                                    progressionMarkerId : val.progression_marker_id,
-                                        //                                    taskId : null,
-                                        //                                    taskGroupId : task.taskGroupId,
-                                        //                                    levelSystemId : null,
-                                        //                                    levelSystemLevelId : null,
-                                        //                                    projectId : projectId,
-                                        //                                    userId : userId,
-                                        //                                    mode : taskBusRewardMode,
-                                        //                                    status : taskBusRewardStatus
-                                        //                                },
-                                        //                                type: QueryTypes.INSERT,
-                                        //                                nest: true
-                                        //                            });
-                                        //                    }
+                                        console.log('dbTaskGroup', dbTaskGroup[0]);
 
-                                        console.log('Making an api call after task group evaluate');
+                                        if (!dbTaskGroupTaskBus.length) {
+                                            const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                                            const taskBusRewardMode = dbTaskGroup[0].reward_claim === 'automatic' ? 'server' : 'client';
+                                            const taskBusRewardStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'completed' : 'pending';
 
-                                        await axios.post('http://localhost:3000/v1/task/grantReward', {
-                                            userId: userId,
-                                            eventId: eventId,
-                                            taskGroupId: task.taskGroupId
-                                        });
+                                            // Task group is completed
+                                            await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+                     values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
+                                                type: QueryTypes.INSERT,
+                                                nest: true
+                                            });
+
+                                            //                    const dbTaskGroupRewardMapping = await sequelize.query(`select * from task_group_rewards
+                                            //                        where task_group_id=:taskGroupId;`, {
+                                            //                        replacements: {
+                                            //                            taskGroupId: task.taskGroupId
+                                            //                        },
+                                            //                        raw: true,
+                                            //                        nest: true
+                                            //                    });
+                                            //
+                                            //                    for (val of dbTaskGroupRewardMapping) {
+                                            //                        await sequelize.query(`insert into reward_history (id, amount, reward_set_id, bundle_id,
+                                            //                    item_id, currency_id, progression_marker_id, task_id,
+                                            //        task_group_id, level_system_id, level_system_level_id, project_id, user_id, mode, status,
+                                            //        active, archive, created_at, updated_at)
+                                            // values (uuid_generate_v4(), :amount, :rewardSetId, :bundleId, :itemId, :currencyId, :progressionMarkerId,
+                                            //  :taskId, :taskGroupId, :levelSystemId, :levelSystemLevelId, :projectId, :userId, :mode, :status, true, false, now(), now());`,
+                                            //                            {
+                                            //                                replacements : {
+                                            //                                    amount : val.quantity,
+                                            //                                    rewardSetId : val.reward_set_id,
+                                            //                                    bundleId : val.bundle_id,
+                                            //                                    itemId : val.item_id,
+                                            //                                    currencyId : val.currency_id,
+                                            //                                    progressionMarkerId : val.progression_marker_id,
+                                            //                                    taskId : null,
+                                            //                                    taskGroupId : task.taskGroupId,
+                                            //                                    levelSystemId : null,
+                                            //                                    levelSystemLevelId : null,
+                                            //                                    projectId : projectId,
+                                            //                                    userId : userId,
+                                            //                                    mode : taskBusRewardMode,
+                                            //                                    status : taskBusRewardStatus
+                                            //                                },
+                                            //                                type: QueryTypes.INSERT,
+                                            //                                nest: true
+                                            //                            });
+                                            //                    }
+
+                                            console.log('Making an api call after task group evaluate');
+
+                                            await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                                userId: userId,
+                                                eventId: eventId,
+                                                taskGroupId: task.taskGroupId
+                                            });
+                                        }
                                     }
                                 }
                             }
@@ -557,12 +608,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                 let expression = {};
 
                 if (param.incrementalType === "cumulative" && clause.operator === "greaterThanInclusive") {
-                    expression = { fact: clause.fact, operator: clause.operator, value: clause.value };
+                    expression = {fact: clause.fact, operator: clause.operator, value: clause.value};
                 } else {
                     expression = {
                         $or: [
-                            { [`data.defaultParams.${clause.fact}`]: clause.value },
-                            { [`data.customParams.${clause.fact}`]: clause.value }
+                            {[`data.defaultParams.${clause.fact}`]: clause.value},
+                            {[`data.customParams.${clause.fact}`]: clause.value}
                         ]
                     };
                 }
@@ -572,7 +623,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
             let matchConditions = buildMatchExpression(businessLogic);
             matchConditions = Array.isArray(matchConditions) ? matchConditions : [matchConditions];
 
-            let initialMatchStage = { $match: { userId: userId } };
+            let initialMatchStage = {$match: {userId: userId}};
 
             let groupStage = {
                 $group: {
@@ -581,8 +632,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         acc[param.parameterName + "Sum"] = {
                             $sum: {
                                 $add: [
-                                    { $ifNull: [`$data.defaultParams.${param.parameterName}`, 0] },
-                                    { $ifNull: [`$data.customParams.${param.parameterName}`, 0] }
+                                    {$ifNull: [`$data.defaultParams.${param.parameterName}`, 0]},
+                                    {$ifNull: [`$data.customParams.${param.parameterName}`, 0]}
                                 ]
                             }
                         };
