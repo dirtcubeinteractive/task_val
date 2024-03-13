@@ -304,6 +304,10 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     nest: true
                                 });
 
+                                console.log('dbTask[0]', dbTask[0])
+                                console.log('dbTask[0]', dbTask[0].is_recurring);
+                                console.log('type of', typeof dbTask[0].is_recurring)
+
                                 const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId`, {
                                     replacements: {
                                         taskId: task.taskId,
