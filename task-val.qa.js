@@ -122,7 +122,7 @@ app.post('/test-run', async (req, res) => {
 
                     console.log('dbTaskBus at 122', dbTaskBus);
 
-                    if (!dbTaskBus.length) {
+                    if (!dbTaskBus.length || dbTask[0].is_recurring === true) {
                         console.log('task is passed at 125');
                         const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
                         await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
@@ -171,7 +171,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 nest: true
                             })
 
-                            if (!dbTaskGroupTaskBus.length) {
+                            if (!dbTaskGroupTaskBus.length || dbTaskGroup[0].is_recurring === true) {
                                 const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
 
                                 // Task group is completed
