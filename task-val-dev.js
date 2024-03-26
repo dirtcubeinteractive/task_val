@@ -18,14 +18,14 @@ let startOfWeek = new Date();
 app.listen(4000, () => {
     console.log('Server has started on PORT 4000');
     // Initially set the startOfDay and startOfWeek
-    resetStartOfDay();
-    resetStartOfWeek();
-
-    // Schedule the startOfDay to reset every 2 minutes
-    setInterval(resetStartOfDay, 2 * 60 * 1000); // 2 minutes in milliseconds
-
-    // Schedule the startOfWeek to reset every 3 minutes
-    setInterval(resetStartOfWeek, 3 * 60 * 1000); // 3 minutes in milliseconds
+    // resetStartOfDay();
+    // resetStartOfWeek();
+    //
+    // // Schedule the startOfDay to reset every 2 minutes
+    // setInterval(resetStartOfDay, 2 * 60 * 1000); // 2 minutes in milliseconds
+    //
+    // // Schedule the startOfWeek to reset every 3 minutes
+    // setInterval(resetStartOfWeek, 3 * 60 * 1000); // 3 minutes in milliseconds
 });
 
 function taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAtMidnight, lastSundayAtMidnight) {
