@@ -46,7 +46,7 @@ app.post('/test-run', async (req, res) => {
         'admin',
         'Dirtcube2019',
         {
-            host: '65.2.161.92',
+            host: '13.232.44.32',
             dialect: 'postgres',
             port: 5432,
             logging: false,
@@ -54,7 +54,7 @@ app.post('/test-run', async (req, res) => {
     );
 
     // Set up Mongoose connection
-    const mongoURI = 'mongodb://admin:Dirtcube2019@65.2.161.92:27017/dirtcube-specterapp-dev?retryWrites=true&w=majority'; // Replace placeholders
+    const mongoURI = 'mongodb://admin:Dirtcube2019@13.232.44.32:27017/dirtcube-specterapp-dev?retryWrites=true&w=majority'; // Replace placeholders
     const client = new MongoClient(mongoURI, {
         useNewUrlParser: true,
         useUnifiedTopology: true,
