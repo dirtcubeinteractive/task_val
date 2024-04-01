@@ -12,9 +12,31 @@ const {QueryTypes} = require("sequelize");
 const {Engine} = require('json-rules-engine');
 const axios = require('axios');
 
+let startOfDay = new Date();
+let startOfWeek = new Date();
+
 app.listen(4000, () => {
     console.log('Server has started on PORT 4000');
+    // Initially set the startOfDay and startOfWeek
+    // resetStartOfDay();
+    // resetStartOfWeek();
+    //
+    // // Schedule the startOfDay to reset every 2 minutes
+    // setInterval(resetStartOfDay, 2 * 60 * 1000); // 2 minutes in milliseconds
+    //
+    // // Schedule the startOfWeek to reset every 3 minutes
+    // setInterval(resetStartOfWeek, 3 * 60 * 1000); // 3 minutes in milliseconds
 });
+
+function taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAtMidnight, lastSundayAtMidnight) {
+    return !dbTaskBus.length
+        ||
+        dbTask[0].is_recurring === true
+        ||
+        (dbTaskBus.length && dbTask[0].type === 'daily' && createdAtLocal < todayAtMidnight)
+        ||
+        (dbTaskBus.length && dbTask[0].type === 'weekly' && createdAtLocal < lastSundayAtMidnight);
+}
 
 app.post('/test-run', async (req, res) => {
     const {eventId, projectId, parameterIds, userId, paramDetails, levelSystemDetails, collectionName} = req.body; // You should replace this with the actual way to extract these values from the event
@@ -40,7 +62,6 @@ app.post('/test-run', async (req, res) => {
 
 
     try {
-        console.log('body', req.body);
         await client.connect();
         const db = client.db();
 
@@ -91,16 +112,12 @@ app.post('/test-run', async (req, res) => {
             }).toArray();
         }
 
-        console.log('task', tasks);
-
         for (let task of tasks) {
             try {
-                console.log('taskId', task.taskId);
                 const utsc = db.collection('usertaskstatus');
                 let taskValidationInit = false;
 
                 if (!task.parameters || !task.parameters.length) {
-                    console.log('task at 102', task);
                     const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
                         replacements: {
                             taskId: task.taskId
@@ -109,83 +126,114 @@ app.post('/test-run', async (req, res) => {
                         nest: true
                     });
 
-                    console.log('dbTask at 111', dbTask);
+                    if (dbTask.length && dbTask[0].task_group_id && dbTask[0].sorting_order > 1) {
+                        const currentSortingOrder = dbTask[0].sorting_order;
 
-                    const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId`, {
-                        replacements: {
-                            taskId: task.taskId,
-                            userId : userId
-                        },
-                        raw: true,
-                        nest: true
-                    })
-
-                    console.log('dbTaskBus at 122', dbTaskBus);
-
-                    if (!dbTaskBus.length || dbTask[0].is_recurring === true) {
-                        console.log('task is passed at 125');
-                        const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                        await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
-                            type: QueryTypes.INSERT,
-                            nest: true
-                        });
-
-                        await utsc.insertOne({
-                            taskId: task.taskId,
-                            projectId: projectId,
-                            userId: userId,
-                            status: 'succeed'
-                        });
-
-                        await axios.post('http://localhost:3000/v1/task/grantReward', {
-                            userId: userId,
-                            eventId: eventId,
-                            taskId: task.taskId
-                        });
-                    }
-
-                    if (task.taskGroupId) {
-                        const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}';`, {
+                        const dbTaskLessThanCurrentSortingOrder = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and sorting_order < :sortingOrder;`, {
                             type: QueryTypes.SELECT,
-                            nest: true,
-                            raw: true
+                            replacements: {
+                                taskGroupId: dbTask[0].task_group_id,
+                                sortingOrder: currentSortingOrder
+                            }
+                        });
+                        const ids = dbTaskLessThanCurrentSortingOrder.map(task => `'${task.id}'`).join(', ');
+                        const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids});`, {
+                            type: QueryTypes.SELECT,
+                            replacements: {
+                                taskGroupId: dbTask[0].task_group_id
+                            }
                         });
 
-                        const ids = noOfConfigTasks.map(item => `'${item.id}'`).join(', ');
-                        const noOfTasksCompleted = await sequelize.query(`select count(*) from task_bus where task_id in (${ids});`, {type: QueryTypes.SELECT});
-                        if (noOfTasksCompleted[0].count >= noOfConfigTasks.length) {
-                            const dbTaskGroup = await sequelize.query(`select * from task_groups where id=:taskGroupId`, {
-                                replacements: {
-                                    taskGroupId: task.taskGroupId
-                                },
-                                raw: true,
+                        if (currentSortingOrder > 1 && currentSortingOrder - 1 > dbTaskBusWithTaskIds.length) {
+                            continue;
+                        }
+                    }
+                    if (dbTask.length && dbTask[0].is_available_for_current_cycle === true) {
+                        const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId order by created_at desc limit 1;`, {
+                            replacements: {
+                                taskId: task.taskId,
+                                userId: userId
+                            },
+                            raw: true,
+                            nest: true
+                        })
+
+                        // Task validation logic criteria
+                        // 1. If no task has been found in task bus
+                        // 2. If task is recurring
+                        // 3. If task has been found in task bus and task type is daily and task bus created at is less than today's 12.00 AM
+                        // 4. If task has been found in task bus and task type is weekly and task bus created at is less than last Sunday 12.00 AM
+
+                        const createdAtLocal = dbTaskBus.length ? dbTaskBus[0].created_at : null;
+                        const todayAtMidnight = getTodayAtMidnight();
+                        const lastSundayAtMidnight = getLastSundayAtMidnight();
+
+                        const isPassedTaskConfigValidationCriteria = taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAtMidnight, lastSundayAtMidnight);
+
+                        if (isPassedTaskConfigValidationCriteria) {
+                            const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                            await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
+                                type: QueryTypes.INSERT,
                                 nest: true
                             });
 
-                            const dbTaskGroupTaskBus = await sequelize.query(`select * from task_bus where task_group_id=:taskGroupId`, {
-                                replacements: {
-                                    taskGroupId: task.taskGroupId
-                                },
-                                raw: true,
-                                nest: true
-                            })
+                            await utsc.insertOne({
+                                taskId: task.taskId,
+                                projectId: projectId,
+                                userId: userId,
+                                status: 'succeed'
+                            });
 
-                            if (!dbTaskGroupTaskBus.length || dbTaskGroup[0].is_recurring === true) {
-                                const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                            await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                userId: userId,
+                                eventId: eventId,
+                                taskId: task.taskId
+                            });
+                        }
 
-                                // Task group is completed
-                                await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-                     values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
-                                    type: QueryTypes.INSERT,
+                        if (task.taskGroupId) {
+                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}';`, {
+                                type: QueryTypes.SELECT,
+                                nest: true,
+                                raw: true
+                            });
+
+                            const ids = noOfConfigTasks.map(task => `'${task.id}'`).join(', ');
+                            const noOfTasksCompleted = await sequelize.query(`select count(*) from task_bus where task_id in (${ids});`, {type: QueryTypes.SELECT});
+                            if (noOfTasksCompleted[0].count >= noOfConfigTasks.length) {
+                                const dbTaskGroup = await sequelize.query(`select * from task_groups where id=:taskGroupId`, {
+                                    replacements: {
+                                        taskGroupId: task.taskGroupId
+                                    },
+                                    raw: true,
                                     nest: true
                                 });
 
-                                await axios.post('http://localhost:3000/v1/task/grantReward', {
-                                    userId: userId,
-                                    eventId: eventId,
-                                    taskGroupId: task.taskGroupId
-                                });
+                                const dbTaskGroupTaskBus = await sequelize.query(`select * from task_bus where task_group_id=:taskGroupId`, {
+                                    replacements: {
+                                        taskGroupId: task.taskGroupId
+                                    },
+                                    raw: true,
+                                    nest: true
+                                })
+
+                                if (!dbTaskGroupTaskBus.length || dbTaskGroup[0].is_recurring === true) {
+                                    const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+
+                                    // Task group is completed
+                                    await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+                     values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
+                                        type: QueryTypes.INSERT,
+                                        nest: true
+                                    });
+
+                                    await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                        userId: userId,
+                                        eventId: eventId,
+                                        taskGroupId: task.taskGroupId
+                                    });
+                                }
                             }
                         }
                     }
@@ -197,35 +245,67 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                     for (let param of task.parameters) {
                         // Task is one time
                         if (!task.isRecurring) {
-                            console.log('task at 199', task.taskId);
-                            const dbTaskBus = await sequelize.query(`select * from task_bus where task_id='${task.taskId}' and user_id='${userId}' limit 1;`, {
-                                type: QueryTypes.SELECT,
-                                nest: true,
-                                raw: true
+                            const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
+                                replacements: {
+                                    taskId: task.taskId
+                                },
+                                raw: true,
+                                nest: true
                             });
 
-                            console.log('dbTaskBus at 206', dbTaskBus)
 
-                            if (dbTaskBus.length) {
-                                shouldEvaluate = false;
-                            }
+                            if (dbTask.length && dbTask[0].is_available_for_current_cycle === true) {
+                                // get count of all the task of sorting order less than dbTask[0].sorting_order
+                                // if count is === current sorting order - 1
+                                let startDate;
+                                if (dbTask[0].task_group_id && dbTask[0].type === 'daily') {
+                                    startDate = getTodayAtMidnight();
+                                }
 
-                            if ((!dbTaskBus || !dbTaskBus.length) && param.incrementalType === 'cumulative') {
-                                taskValidationInit = true
-                                const userUpdateWalletCollection = db.collection(collectionName);
-                                console.log('param ', param);
-                                const pipeline = getAggregateQuery({
-                                    parameters: task.parameters,
-                                    userId,
-                                    limit: param.noOfRecords || null,
-                                    startTime: param.startTime || null,
-                                    endTime: param.endTime || null,
-                                    businessLogic: task.businessLogic
-                                });
-                                const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
+                                if (dbTask[0].task_group_id && dbTask[0].type === 'weekly') {
+                                    startDate = getLastSundayAtMidnight();
+                                }
 
-                                if (result.length) {
-                                    paramDetails[param.parameterName] = result[0][param.parameterName + "Sum"]
+                                if (dbTask[0].task_group_id && dbTask[0].sorting_order > 1 && dbTask[0].type === 'static') {
+                                    const currentSortingOrder = dbTask[0].sorting_order;
+
+                                    const dbTaskLessThanCurrentSortingOrder = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and sorting_order < :sortingOrder;`, {
+                                        type: QueryTypes.SELECT,
+                                        replacements: {
+                                            taskGroupId: dbTask[0].task_group_id,
+                                            sortingOrder: currentSortingOrder
+                                        }
+                                    });
+                                    const ids = dbTaskLessThanCurrentSortingOrder.map(task => `'${task.id}'`).join(', ');
+                                    const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids});`, {
+                                        type: QueryTypes.SELECT,
+                                        replacements: {
+                                            taskGroupId: dbTask[0].task_group_id
+                                        }
+                                    });
+
+                                    if (currentSortingOrder > 1 && currentSortingOrder - 1 > dbTaskBusWithTaskIds.length) {
+                                        continue;
+                                    }
+                                }
+
+
+                                if (param.incrementalType === 'cumulative') {
+                                    taskValidationInit = true
+                                    const userUpdateWalletCollection = db.collection(collectionName);
+                                    const pipeline = getAggregateQuery({
+                                        parameters: task.parameters,
+                                        userId,
+                                        limit: param.noOfRecords || null,
+                                        startDate: startDate || null,
+                                        endDate: param.endTime || null,
+                                        businessLogic: task.businessLogic
+                                    });
+                                    const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
+
+                                    if (result.length) {
+                                        paramDetails[param.parameterName] = result[0][param.parameterName + "Sum"]
+                                    }
                                 }
                             }
                         }
@@ -260,13 +340,53 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     }
                                 }
 
+                                const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
+                                    replacements: {
+                                        taskId: task.taskId
+                                    },
+                                    raw: true,
+                                    nest: true
+                                });
+
+                                let startDate;
+                                if (dbTask.length && dbTask[0] && dbTask[0].type === 'daily') {
+                                    startDate = getTodayAtMidnight();
+                                }
+
+                                if (dbTask.length && dbTask[0] && dbTask[0].type === 'weekly') {
+                                    startDate = getLastSundayAtMidnight();
+                                }
+
+                                if (dbTask[0].task_group_id && dbTask[0].sorting_order > 1 && dbTask[0].type === 'static') {
+                                    const currentSortingOrder = dbTask[0].sorting_order;
+
+                                    const dbTaskLessThanCurrentSortingOrder = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and sorting_order < :sortingOrder;`, {
+                                        type: QueryTypes.SELECT,
+                                        replacements: {
+                                            taskGroupId: dbTask[0].task_group_id,
+                                            sortingOrder: currentSortingOrder
+                                        }
+                                    });
+                                    const ids = dbTaskLessThanCurrentSortingOrder.map(task => `'${task.id}'`).join(', ');
+                                    const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids});`, {
+                                        type: QueryTypes.SELECT,
+                                        replacements: {
+                                            taskGroupId: dbTask[0].task_group_id
+                                        }
+                                    });
+
+                                    if (currentSortingOrder > 1 && currentSortingOrder - 1 > dbTaskBusWithTaskIds.length) {
+                                        continue;
+                                    }
+                                }
+
                                 const userUpdateWalletCollection = db.collection(collectionName);
                                 const pipeline = getAggregateQuery({
                                     parameters: task.parameters,
                                     userId,
                                     limit: param.noOfRecords || null,
-                                    startTime: param.startTime || null,
-                                    endTime: param.endTime || null,
+                                    startDate: startDate || null,
+                                    endDate: param.endTime || null,
                                     businessLogic: task.businessLogic
                                 });
                                 const result = pipeline ? await userUpdateWalletCollection.aggregate(pipeline).toArray() : [];
@@ -294,31 +414,39 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             }
                         },
                         onSuccess: async () => {
-                            console.log('shouldEvaluate',shouldEvaluate);
-                            if (shouldEvaluate) {
-                                const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
-                                    replacements: {
-                                        taskId: task.taskId
-                                    },
-                                    raw: true,
-                                    nest: true
-                                });
+                            // if (shouldEvaluate) {
+                            const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
+                                replacements: {
+                                    taskId: task.taskId
+                                },
+                                raw: true,
+                                nest: true
+                            });
 
-                                const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId`, {
+                            if (dbTask.length && dbTask[0].is_available_for_current_cycle === true) {
+                                const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId order by created_at desc limit 1;`, {
                                     replacements: {
                                         taskId: task.taskId,
-                                        userId : userId
+                                        userId: userId
                                     },
                                     raw: true,
                                     nest: true
                                 });
 
-                                console.log('dbTaskBus', dbTaskBus);
+                                // Task validation logic criteria
+                                // 1. If no task has been found in task bus
+                                // 2. If task is recurring
+                                // 3. If task has been found in task bus and task type is daily and task bus created at is less than today's 12.00 AM
+                                // 4. If task has been found in task bus and task type is weekly and task bus created at is less than last Sunday 12.00 AM
 
-                                if (!dbTaskBus.length || dbTask[0].is_recurring === true) {
+                                const createdAtLocal = dbTaskBus.length ? dbTaskBus[0].created_at : null;
+                                const todayAtMidnight = getTodayAtMidnight();
+                                const lastSundayAtMidnight = getLastSundayAtMidnight();
+
+                                const isPassedTaskConfigValidationCriteria = taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAtMidnight, lastSundayAtMidnight);
+
+                                if (isPassedTaskConfigValidationCriteria) {
                                     const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                                    const rewardMode = dbTask[0].reward_claim === 'automatic' ? 'server' : 'client';
-                                    const rewardStatus = dbTask[0].reward_claim === 'automatic' ? 'completed' : 'pending';
                                     console.log('task passed');
                                     await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
 values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
@@ -332,7 +460,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         userId: userId,
                                         status: 'succeed'
                                     });
-                                    console.log('Making an api call after task is passed')
                                     await axios.post('http://localhost:3000/v1/task/grantReward', {
                                         userId: userId,
                                         eventId: eventId,
@@ -341,15 +468,14 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 }
 
                                 if (task.taskGroupId) {
-                                    console.log('Inside the task group call');
-                                    const dbTaskGroupBus = await sequelize.query(`select * from task_bus where task_group_id='${task.taskGroupId}' and user_id='${userId}' limit 1;`, {
+                                    const dbTaskGroupBus = await sequelize.query(`select * from task_bus where task_group_id='${task.taskGroupId}' and user_id='${userId}'  order by created_at desc limit 1;`, {
                                         type: QueryTypes.SELECT,
                                         nest: true,
                                         raw: true
                                     });
 
                                     if (!dbTaskGroupBus.length) {
-                                        const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}' and user_id='${userId}';`, {
+                                        const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}';`, {
                                             type: QueryTypes.SELECT,
                                             nest: true,
                                             raw: true
@@ -378,8 +504,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                                             if (!dbTaskGroupTaskBus.length || dbTaskGroup[0].is_recurring === true) {
                                                 const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                                                const taskBusRewardMode = dbTaskGroup[0].reward_claim === 'automatic' ? 'server' : 'client';
-                                                const taskBusRewardStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'completed' : 'pending';
 
                                                 // Task group is completed
                                                 await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
@@ -398,11 +522,11 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                             }
                                         }
                                     }
+                                    // }
                                 }
                             }
                         }
                     });
-                    console.log('paramDetails after update', paramDetails);
                     await ruleEngine.run(paramDetails);
                     ruleEngine.stop();
                 }
@@ -424,8 +548,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
     }
 
 
-    function getAggregateQuery({parameters, userId, limit, startTime, endTime, businessLogic}) {
-        if (!limit && !startTime && !endTime) {
+    function getAggregateQuery({parameters, userId, limit, startDate, endDate, businessLogic}) {
+        if (!limit && !startDate && !endDate) {
             function buildMatchExpression(condition) {
                 let expressions = [];
 
@@ -474,7 +598,18 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
             let matchConditions = buildMatchExpression(businessLogic);
             matchConditions = Array.isArray(matchConditions) ? matchConditions : [matchConditions];
 
-            let initialMatchStage = {$match: {userId: userId}};
+            let initialMatchStage = {
+                $match: {
+                    userId: userId,
+                    // Dynamically add 'createdAt' conditions based on the presence of 'startDate' and 'endDate'
+                    ...(startDate || endDate ? {
+                        createdAt: {
+                            ...(startDate ? {$gte: startDate} : {}),
+                            ...(endDate ? {$lte: endDate} : {})
+                        }
+                    } : {})
+                },
+            };
 
             let groupStage = {
                 $group: {
@@ -509,7 +644,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
         }
 
         if (limit) {
-            console.log('limit', limit);
             function buildMatchExpression(condition) {
                 let expressions = [];
 
@@ -558,7 +692,19 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
             let matchConditions = buildMatchExpression(businessLogic);
             matchConditions = Array.isArray(matchConditions) ? matchConditions : [matchConditions];
 
-            let initialMatchStage = {$match: {userId: userId}};
+            // let initialMatchStage = {$match: {userId: userId}};
+            let initialMatchStage = {
+                $match: {
+                    userId: userId,
+                    // Dynamically add 'createdAt' conditions based on the presence of 'startDate' and 'endDate'
+                    ...(startDate || endDate ? {
+                        createdAt: {
+                            ...(startDate ? {$gte: startDate} : {}),
+                            ...(endDate ? {$lte: endDate} : {})
+                        }
+                    } : {})
+                },
+            };
 
 // Sort stage by _id in descending order
             let sortStage = {$sort: {_id: -1}};
@@ -598,7 +744,50 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
             return pipeline;
         }
-
-
     }
 })
+
+function parseUTCDateToLocal(utcDateString) {
+    // const utcDate = new Date(utcDateString);
+    // // Adjust to local time by subtracting the timezone offset
+    // return new Date(utcDate.getTime() - utcDate.getTimezoneOffset() * 60000);
+    return utcDateString;
+}
+
+
+function getTodayAtMidnight() {
+    const now = new Date();
+    return new Date(now.setHours(0, 0, 0, 0));
+
+    // For testing purpose day is set to 3 min
+    // return startOfDay;
+}
+
+function getLastSundayAtMidnight() {
+    const now = new Date();
+    // Get the current day of the week, 0 (Sunday) to 6 (Saturday)
+    const today = now.getUTCDay();
+    // Calculate the difference to last Sunday. If today is Sunday, use today's date.
+    let diff = today === 0 ? 0 : -today;
+
+    // Create a new Date object for last Sunday
+    const lastSunday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+
+    // Set the time to midnight (00:00:00)
+    lastSunday.setUTCHours(0, 0, 0, 0);
+
+    return lastSunday;
+    // // For testing: "Last Sunday at Midnight" is considered as 4 minutes ago
+    // console.log('startOfWeek', startOfWeek);
+    // return startOfWeek;
+}
+
+function resetStartOfDay() {
+    startOfDay = new Date(); // Reset to current time
+    console.log('startOfDay has been reset to:', startOfDay);
+}
+
+function resetStartOfWeek() {
+    startOfWeek = new Date(); // Reset to current time
+    console.log('startOfWeek has been reset to:', startOfWeek);
+}

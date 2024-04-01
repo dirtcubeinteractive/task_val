@@ -126,6 +126,28 @@ app.post('/test-run', async (req, res) => {
                         nest: true
                     });
 
+                    if (dbTask.length && dbTask[0].task_group_id && dbTask[0].sorting_order > 1) {
+                        const currentSortingOrder = dbTask[0].sorting_order;
+
+                        const dbTaskLessThanCurrentSortingOrder = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and sorting_order < :sortingOrder;`, {
+                            type: QueryTypes.SELECT,
+                            replacements: {
+                                taskGroupId: dbTask[0].task_group_id,
+                                sortingOrder: currentSortingOrder
+                            }
+                        });
+                        const ids = dbTaskLessThanCurrentSortingOrder.map(task => `'${task.id}'`).join(', ');
+                        const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids});`, {
+                            type: QueryTypes.SELECT,
+                            replacements: {
+                                taskGroupId: dbTask[0].task_group_id
+                            }
+                        });
+
+                        if (currentSortingOrder > 1 && currentSortingOrder - 1 > dbTaskBusWithTaskIds.length) {
+                            continue;
+                        }
+                    }
                     if (dbTask.length && dbTask[0].is_available_for_current_cycle === true) {
                         const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId order by created_at desc limit 1;`, {
                             replacements: {
@@ -142,7 +164,7 @@ app.post('/test-run', async (req, res) => {
                         // 3. If task has been found in task bus and task type is daily and task bus created at is less than today's 12.00 AM
                         // 4. If task has been found in task bus and task type is weekly and task bus created at is less than last Sunday 12.00 AM
 
-                        const createdAtLocal = dbTaskBus.length ? parseUTCDateToLocal(dbTaskBus[0].created_at) : null;
+                        const createdAtLocal = dbTaskBus.length ? dbTaskBus[0].created_at : null;
                         const todayAtMidnight = getTodayAtMidnight();
                         const lastSundayAtMidnight = getLastSundayAtMidnight();
 
@@ -177,7 +199,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 raw: true
                             });
 
-                            const ids = noOfConfigTasks.map(item => `'${item.id}'`).join(', ');
+                            const ids = noOfConfigTasks.map(task => `'${task.id}'`).join(', ');
                             const noOfTasksCompleted = await sequelize.query(`select count(*) from task_bus where task_id in (${ids});`, {type: QueryTypes.SELECT});
                             if (noOfTasksCompleted[0].count >= noOfConfigTasks.length) {
                                 const dbTaskGroup = await sequelize.query(`select * from task_groups where id=:taskGroupId`, {
@@ -223,19 +245,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                     for (let param of task.parameters) {
                         // Task is one time
                         if (!task.isRecurring) {
-                            // console.log('task at 199', task.taskId);
-                            // const dbTaskBus = await sequelize.query(`select * from task_bus where task_id='${task.taskId}' and user_id='${userId}' limit 1;`, {
-                            //     type: QueryTypes.SELECT,
-                            //     nest: true,
-                            //     raw: true
-                            // });
-                            //
-                            // console.log('dbTaskBus at 206', dbTaskBus)
-                            //
-                            // if (dbTaskBus.length) {
-                            //     shouldEvaluate = false;
-                            // }
-
                             const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
                                 replacements: {
                                     taskId: task.taskId
@@ -244,32 +253,59 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 nest: true
                             });
 
-                            console.log('dbTask', dbTask[0]);
 
-                            let startDate;
-                            if (dbTask.length && dbTask[0] && dbTask[0].type === 'daily') {
-                                startDate = getTodayAtMidnight();
-                            }
+                            if (dbTask.length && dbTask[0].is_available_for_current_cycle === true) {
+                                // get count of all the task of sorting order less than dbTask[0].sorting_order
+                                // if count is === current sorting order - 1
+                                let startDate;
+                                if (dbTask[0].task_group_id && dbTask[0].type === 'daily') {
+                                    startDate = getTodayAtMidnight();
+                                }
 
-                            if (dbTask.length && dbTask[0] && dbTask[0].type === 'weekly') {
-                                startDate = getLastSundayAtMidnight();
-                            }
+                                if (dbTask[0].task_group_id && dbTask[0].type === 'weekly') {
+                                    startDate = getLastSundayAtMidnight();
+                                }
 
-                            if (param.incrementalType === 'cumulative') {
-                                taskValidationInit = true
-                                const userUpdateWalletCollection = db.collection(collectionName);
-                                const pipeline = getAggregateQuery({
-                                    parameters: task.parameters,
-                                    userId,
-                                    limit: param.noOfRecords || null,
-                                    startDate: startDate || null,
-                                    endDate: param.endTime || null,
-                                    businessLogic: task.businessLogic
-                                });
-                                const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
+                                if (dbTask[0].task_group_id && dbTask[0].sorting_order > 1 && dbTask[0].type === 'static') {
+                                    const currentSortingOrder = dbTask[0].sorting_order;
 
-                                if (result.length) {
-                                    paramDetails[param.parameterName] = result[0][param.parameterName + "Sum"]
+                                    const dbTaskLessThanCurrentSortingOrder = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and sorting_order < :sortingOrder;`, {
+                                        type: QueryTypes.SELECT,
+                                        replacements: {
+                                            taskGroupId: dbTask[0].task_group_id,
+                                            sortingOrder: currentSortingOrder
+                                        }
+                                    });
+                                    const ids = dbTaskLessThanCurrentSortingOrder.map(task => `'${task.id}'`).join(', ');
+                                    const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids});`, {
+                                        type: QueryTypes.SELECT,
+                                        replacements: {
+                                            taskGroupId: dbTask[0].task_group_id
+                                        }
+                                    });
+
+                                    if (currentSortingOrder > 1 && currentSortingOrder - 1 > dbTaskBusWithTaskIds.length) {
+                                        continue;
+                                    }
+                                }
+
+
+                                if (param.incrementalType === 'cumulative') {
+                                    taskValidationInit = true
+                                    const userUpdateWalletCollection = db.collection(collectionName);
+                                    const pipeline = getAggregateQuery({
+                                        parameters: task.parameters,
+                                        userId,
+                                        limit: param.noOfRecords || null,
+                                        startDate: startDate || null,
+                                        endDate: param.endTime || null,
+                                        businessLogic: task.businessLogic
+                                    });
+                                    const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
+
+                                    if (result.length) {
+                                        paramDetails[param.parameterName] = result[0][param.parameterName + "Sum"]
+                                    }
                                 }
                             }
                         }
@@ -312,8 +348,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     nest: true
                                 });
 
-                                console.log('dbTask', dbTask[0]);
-
                                 let startDate;
                                 if (dbTask.length && dbTask[0] && dbTask[0].type === 'daily') {
                                     startDate = getTodayAtMidnight();
@@ -321,6 +355,29 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                                 if (dbTask.length && dbTask[0] && dbTask[0].type === 'weekly') {
                                     startDate = getLastSundayAtMidnight();
+                                }
+
+                                if (dbTask[0].task_group_id && dbTask[0].sorting_order > 1 && dbTask[0].type === 'static') {
+                                    const currentSortingOrder = dbTask[0].sorting_order;
+
+                                    const dbTaskLessThanCurrentSortingOrder = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and sorting_order < :sortingOrder;`, {
+                                        type: QueryTypes.SELECT,
+                                        replacements: {
+                                            taskGroupId: dbTask[0].task_group_id,
+                                            sortingOrder: currentSortingOrder
+                                        }
+                                    });
+                                    const ids = dbTaskLessThanCurrentSortingOrder.map(task => `'${task.id}'`).join(', ');
+                                    const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids});`, {
+                                        type: QueryTypes.SELECT,
+                                        replacements: {
+                                            taskGroupId: dbTask[0].task_group_id
+                                        }
+                                    });
+
+                                    if (currentSortingOrder > 1 && currentSortingOrder - 1 > dbTaskBusWithTaskIds.length) {
+                                        continue;
+                                    }
                                 }
 
                                 const userUpdateWalletCollection = db.collection(collectionName);
@@ -366,8 +423,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 nest: true
                             });
 
-                            console.log('dbTask', dbTask[0]);
-
                             if (dbTask.length && dbTask[0].is_available_for_current_cycle === true) {
                                 const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId order by created_at desc limit 1;`, {
                                     replacements: {
@@ -384,17 +439,14 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 // 3. If task has been found in task bus and task type is daily and task bus created at is less than today's 12.00 AM
                                 // 4. If task has been found in task bus and task type is weekly and task bus created at is less than last Sunday 12.00 AM
 
-                                const createdAtLocal = dbTaskBus.length ? parseUTCDateToLocal(dbTaskBus[0].created_at) : null;
+                                const createdAtLocal = dbTaskBus.length ? dbTaskBus[0].created_at : null;
                                 const todayAtMidnight = getTodayAtMidnight();
                                 const lastSundayAtMidnight = getLastSundayAtMidnight();
 
                                 const isPassedTaskConfigValidationCriteria = taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAtMidnight, lastSundayAtMidnight);
-                                console.log('isPassedTaskConfigValidationCriteria', isPassedTaskConfigValidationCriteria);
 
                                 if (isPassedTaskConfigValidationCriteria) {
                                     const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                                    const rewardMode = dbTask[0].reward_claim === 'automatic' ? 'server' : 'client';
-                                    const rewardStatus = dbTask[0].reward_claim === 'automatic' ? 'completed' : 'pending';
                                     console.log('task passed');
                                     await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
 values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
@@ -452,8 +504,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                                             if (!dbTaskGroupTaskBus.length || dbTaskGroup[0].is_recurring === true) {
                                                 const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                                                const taskBusRewardMode = dbTaskGroup[0].reward_claim === 'automatic' ? 'server' : 'client';
-                                                const taskBusRewardStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'completed' : 'pending';
 
                                                 // Task group is completed
                                                 await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
@@ -499,7 +549,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
 
     function getAggregateQuery({parameters, userId, limit, startDate, endDate, businessLogic}) {
-        if (!limit && !startTime && !endTime) {
+        if (!limit && !startDate && !endDate) {
             function buildMatchExpression(condition) {
                 let expressions = [];
 
@@ -554,8 +604,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                     // Dynamically add 'createdAt' conditions based on the presence of 'startDate' and 'endDate'
                     ...(startDate || endDate ? {
                         createdAt: {
-                            ...(startDate ? { $gte: startDate } : {}),
-                            ...(endDate ? { $lte: endDate } : {})
+                            ...(startDate ? {$gte: startDate} : {}),
+                            ...(endDate ? {$lte: endDate} : {})
                         }
                     } : {})
                 },
@@ -649,8 +699,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                     // Dynamically add 'createdAt' conditions based on the presence of 'startDate' and 'endDate'
                     ...(startDate || endDate ? {
                         createdAt: {
-                            ...(startDate ? { $gte: startDate } : {}),
-                            ...(endDate ? { $lte: endDate } : {})
+                            ...(startDate ? {$gte: startDate} : {}),
+                            ...(endDate ? {$lte: endDate} : {})
                         }
                     } : {})
                 },
@@ -694,7 +744,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
             return pipeline;
         }
-
     }
 })
 
@@ -707,12 +756,11 @@ function parseUTCDateToLocal(utcDateString) {
 
 
 function getTodayAtMidnight() {
-    // const now = new Date();
-    // return new Date(now.setHours(0, 0, 0, 0));
+    const now = new Date();
+    return new Date(now.setHours(0, 0, 0, 0));
 
     // For testing purpose day is set to 3 min
-    console.log('startOfDay', startOfDay);
-    return startOfDay;
+    // return startOfDay;
 }
 
 function getLastSundayAtMidnight() {
