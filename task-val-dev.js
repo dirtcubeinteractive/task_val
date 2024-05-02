@@ -137,10 +137,10 @@ app.post('/test-run', async (req, res) => {
                             }
                         });
                         const ids = dbTaskLessThanCurrentSortingOrder.map(task => `'${task.id}'`).join(', ');
-                        const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids});`, {
+                        const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids}) and userId=:userId;`, {
                             type: QueryTypes.SELECT,
                             replacements: {
-                                taskGroupId: dbTask[0].task_group_id
+                                userId : userId
                             }
                         });
 
@@ -280,10 +280,10 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         }
                                     });
                                     const ids = dbTaskLessThanCurrentSortingOrder.map(task => `'${task.id}'`).join(', ');
-                                    const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids});`, {
+                                    const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids}) and user_id=:userId;`, {
                                         type: QueryTypes.SELECT,
                                         replacements: {
-                                            taskGroupId: dbTask[0].task_group_id
+                                            userId : userId
                                         }
                                     });
 
