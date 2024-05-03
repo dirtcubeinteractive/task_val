@@ -39,7 +39,8 @@ function taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAt
 }
 
 app.post('/test-run', async (req, res) => {
-    const {eventId, projectId, parameterIds, userId, paramDetails, levelSystemDetails, collectionName} = req.body; // You should replace this with the actual way to extract these values from the event
+    let {eventId, projectId, parameterIds, userId, paramDetails, levelSystemDetails, collectionName} = req.body; // You should replace this with the actual way to extract these values from the event
+    let originalParamDetails = {...paramDetails};
 
     const sequelize = new Sequelize(
         'dirtcube-specterapp-dev',
@@ -87,6 +88,9 @@ app.post('/test-run', async (req, res) => {
                 {levelSystemLevelDetails: {$exists: false}})
         }
 
+        console.log('eventId', eventId);
+        console.log('projectId', projectId);
+
         let tasks;
         if (parameterIds.length) {
             tasks = await taskParametersCollection.find({
@@ -111,6 +115,8 @@ app.post('/test-run', async (req, res) => {
                 "parameters": null,
             }).toArray();
         }
+
+        console.log('tasks', tasks);
 
         for (let task of tasks) {
             try {
@@ -137,15 +143,12 @@ app.post('/test-run', async (req, res) => {
                             }
                         });
                         const ids = dbTaskLessThanCurrentSortingOrder.map(task => `'${task.id}'`).join(', ');
-                        const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids}) and userId=:userId;`, {
+                        const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids}) and user_id=:userId;`, {
                             type: QueryTypes.SELECT,
                             replacements: {
-                                userId : userId
+                                userId: userId
                             }
                         });
-
-                        console.log('currentSortingOrder', currentSortingOrder);
-                        console.log('currentSortingOrder - 1 > dbTaskBusWithTaskIds.length', currentSortingOrder - 1 > dbTaskBusWithTaskIds.length);
 
                         if (currentSortingOrder > 1 && currentSortingOrder - 1 > dbTaskBusWithTaskIds.length) {
                             continue;
@@ -283,7 +286,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids}) and user_id=:userId;`, {
                                         type: QueryTypes.SELECT,
                                         replacements: {
-                                            userId : userId
+                                            userId: userId
                                         }
                                     });
 
@@ -292,7 +295,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         continue;
                                     }
                                 }
-
 
                                 if (param.incrementalType === 'cumulative') {
                                     taskValidationInit = true
@@ -407,7 +409,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         name: 'test',
                         event: '',
                         onFailure: async () => {
-                            console.log('task failed')
+                            paramDetails = originalParamDetails;
                             if (taskValidationInit) {
                                 await utsc.insertOne({
                                     taskId: task.taskId,
@@ -418,6 +420,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             }
                         },
                         onSuccess: async () => {
+                            paramDetails = originalParamDetails;
                             if (shouldEvaluate) {
                                 const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
                                     replacements: {
@@ -448,6 +451,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     const lastSundayAtMidnight = getLastSundayAtMidnight();
 
                                     const isPassedTaskConfigValidationCriteria = taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAtMidnight, lastSundayAtMidnight);
+                                    console.log('isPassedTaskConfigValidationCriteria', isPassedTaskConfigValidationCriteria);
 
                                     if (isPassedTaskConfigValidationCriteria) {
                                         const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
@@ -528,6 +532,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             }
                         }
                     });
+                    console.log('paramDetails', paramDetails);
                     await ruleEngine.run(paramDetails);
                     ruleEngine.stop();
                 }
@@ -550,6 +555,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
 
     function getAggregateQuery({parameters, userId, limit, startDate, endDate, businessLogic}) {
+        console.log('inside getAggregateQuery')
         if (!limit && !startDate && !endDate) {
             function buildMatchExpression(condition) {
                 let expressions = [];
