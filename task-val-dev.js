@@ -201,7 +201,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         }
 
                         if (task.taskGroupId) {
-                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}';`, {
+                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}' and archive='${false}';`, {
                                 type: QueryTypes.SELECT,
                                 nest: true,
                                 raw: true
@@ -511,15 +511,16 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         });
 
                                         if (!dbTaskGroupBus.length) {
-                                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}';`, {
+                                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}' and archive='${false}';`, {
                                                 type: QueryTypes.SELECT,
                                                 nest: true,
                                                 raw: true
                                             });
 
                                             const ids = noOfConfigTasks.map(item => `'${item.id}'`).join(', ');
-
+                                            console.log('noOfConfigTasks.length',noOfConfigTasks.length);
                                             const noOfTasksCompleted = await sequelize.query(`select count(*) from task_bus where task_id in (${ids}) and user_id='${userId}';`, {type: QueryTypes.SELECT});
+                                            console.log('Number(noOfTasksCompleted[0].count)', Number(noOfTasksCompleted[0].count));
                                             if (Number(noOfTasksCompleted[0].count) >= noOfConfigTasks.length) {
                                                 const dbTaskGroup = await sequelize.query(`select * from task_groups where id=:taskGroupId`, {
                                                     replacements: {
