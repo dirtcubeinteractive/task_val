@@ -40,6 +40,7 @@ function taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAt
 
 app.post('/test-run', async (req, res) => {
     let {eventId, projectId, parameterIds, userId, paramDetails, levelSystemDetails, collectionName} = req.body; // You should replace this with the actual way to extract these values from the event
+    console.log('paramDetails', paramDetails);
     let originalParamDetails = {...paramDetails};
 
     const sequelize = new Sequelize(
@@ -90,6 +91,7 @@ app.post('/test-run', async (req, res) => {
 
         console.log('eventId', eventId);
         console.log('projectId', projectId);
+        console.log('parameterIds', parameterIds)
 
         let tasks;
         if (parameterIds.length) {
@@ -248,6 +250,17 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                 if (task.parameters && task.parameters.length) {
                     let shouldEvaluate = true
 
+                    const dbTaskBusWithUserId = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId`, {
+                        replacements: {
+                            taskId: task.taskId,
+                            userId: userId
+                        }
+                    });
+
+                    if (dbTaskBusWithUserId[0].length) {
+                        continue;
+                    }
+
                     for (let param of task.parameters) {
                         // Task is one time
                         if (!task.isRecurring) {
@@ -258,6 +271,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 raw: true,
                                 nest: true
                             });
+
+                            console.log('task name', dbTask[0].name)
 
 
                             if (dbTask.length && dbTask[0].is_available_for_current_cycle === true) {
@@ -271,6 +286,11 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 if (dbTask[0].task_group_id && dbTask[0].type === 'weekly') {
                                     startDate = getLastSundayAtMidnight();
                                 }
+
+                                console.log('dbTask[0].sorting_order', dbTask[0].sorting_order);
+                                console.log('paramName', param.parameterName);
+                                console.log('param.incrementalType', param.incrementalType);
+
 
                                 if (dbTask[0].task_group_id && dbTask[0].sorting_order > 1 && dbTask[0].type === 'static') {
                                     const currentSortingOrder = dbTask[0].sorting_order;
@@ -404,12 +424,16 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                     }
 
                     let ruleEngine = new Engine();
+                    console.log('task.businessLogic', task.businessLogic);
                     ruleEngine.addRule({
                         conditions: task.businessLogic,
                         name: 'test',
                         event: '',
                         onFailure: async () => {
+                            console.log('task failed');
+                            console.log('originalParamDetails at 423', originalParamDetails);
                             paramDetails = originalParamDetails;
+                            console.log('paramDetails after reset 419', paramDetails);
                             if (taskValidationInit) {
                                 await utsc.insertOne({
                                     taskId: task.taskId,
@@ -420,8 +444,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             }
                         },
                         onSuccess: async () => {
+                            console.log('originalParamDetails at 435', originalParamDetails);
                             paramDetails = originalParamDetails;
+                            console.log('paramDetails after reset 431', paramDetails);
+                            console.log('shouldEvaluate', shouldEvaluate);
                             if (shouldEvaluate) {
+                                console.log('task passed');
                                 const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
                                     replacements: {
                                         taskId: task.taskId
@@ -532,7 +560,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             }
                         }
                     });
-                    console.log('paramDetails', paramDetails);
+                    console.log('paramDetails before sending to BL', paramDetails);
                     await ruleEngine.run(paramDetails);
                     ruleEngine.stop();
                 }
