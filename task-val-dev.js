@@ -201,8 +201,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         }
 
                         if (task.taskGroupId) {
-                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}' and archive='${false}';`, {
+                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive;`, {
                                 type: QueryTypes.SELECT,
+                                replacements : {
+                                    taskGroupId : task.taskGroupId,
+                                    archive : false
+                                },
                                 nest: true,
                                 raw: true
                             });
@@ -511,8 +515,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         });
 
                                         if (!dbTaskGroupBus.length) {
-                                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}' and archive='${false}';`, {
+                                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive;`, {
                                                 type: QueryTypes.SELECT,
+                                                replacements : {
+                                                    archive : false,
+                                                    taskGroupId : task.taskGroupId
+                                                },
                                                 nest: true,
                                                 raw: true
                                             });
