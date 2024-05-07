@@ -203,8 +203,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         }
 
                         if (task.taskGroupId) {
-                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}';`, {
+                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive;`, {
                                 type: QueryTypes.SELECT,
+                                replacements: {
+                                    taskGroupId: task.taskGroupId,
+                                    archive: false
+                                },
                                 nest: true,
                                 raw: true
                             });
@@ -277,6 +281,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             });
 
                             console.log('task name', dbTask[0].name)
+
+                            console.log('dbTask[0].status', dbTask[0].status);
+
+                            if (dbTask.length && dbTask[0].status !== 'in progress') {
+                                shouldEvaluate = false;
+                            }
 
                             if (dbTask.length
                                 && dbTask[0].is_available_for_current_cycle === true
@@ -379,16 +389,20 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     nest: true
                                 });
 
-                                let startDate;
-                                if (dbTask.length && dbTask[0] && dbTask[0].type === 'daily') {
-                                    startDate = getTodayAtMidnight();
+                                // let startDate;
+                                // if (dbTask.length && dbTask[0] && dbTask[0].type === 'daily') {
+                                //     startDate = getTodayAtMidnight();
+                                // }
+                                //
+                                // if (dbTask.length && dbTask[0] && dbTask[0].type === 'weekly') {
+                                //     startDate = getLastSundayAtMidnight();
+                                // }
+
+                                if (dbTask.length && dbTask[0].status !== 'in progress') {
+                                    shouldEvaluate = false;
                                 }
 
-                                if (dbTask.length && dbTask[0] && dbTask[0].type === 'weekly') {
-                                    startDate = getLastSundayAtMidnight();
-                                }
-
-                                if (dbTask[0].task_group_id && dbTask[0].sorting_order > 1 && dbTask[0].type === 'static') {
+                                if (dbTask[0].task_group_id && dbTask[0].sorting_order > 1 && dbTask[0].type === 'static' && dbTask[0].status === 'in progress') {
                                     const currentSortingOrder = dbTask[0].sorting_order;
 
                                     const dbTaskLessThanCurrentSortingOrder = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and sorting_order < :sortingOrder;`, {
@@ -416,8 +430,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     parameters: task.parameters,
                                     userId,
                                     limit: param.noOfRecords || null,
-                                    startDate: startDate || null,
-                                    endDate: param.endTime || null,
+                                    startDate: dbTask[0].current_start_date || null,
+                                    endDate: dbTask[0].current_end_date || null,
                                     businessLogic: task.businessLogic
                                 });
                                 const result = pipeline ? await userUpdateWalletCollection.aggregate(pipeline).toArray() : [];
@@ -515,8 +529,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         });
 
                                         if (!dbTaskGroupBus.length) {
-                                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id='${task.taskGroupId}';`, {
+                                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive;`, {
                                                 type: QueryTypes.SELECT,
+                                                replacements: {
+                                                    taskGroupId: task.taskGroupId,
+                                                    archive: false
+                                                },
                                                 nest: true,
                                                 raw: true
                                             });
