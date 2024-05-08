@@ -331,6 +331,22 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     }
                                 }
 
+                                let clientDefinedCustomEventId;
+                                if (dbTask[0].custom_event_id) {
+                                    const dbCustomEvent = await sequelize.query(`select * from app_events_custom where id=:customEventId`, {
+                                        replacements : {
+                                            customEventId : dbTask[0].custom_event_id
+                                        },
+                                        type: QueryTypes.SELECT,
+                                        nest : true,
+                                        raw : true
+                                    });
+
+                                    if (dbCustomEvent[0]) {
+                                        clientDefinedCustomEventId = dbCustomEvent[0].event_id
+                                    }
+                                }
+
                                 if (param.incrementalType === 'cumulative') {
                                     taskValidationInit = true
                                     const userUpdateWalletCollection = db.collection(collectionName);
@@ -339,8 +355,9 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         userId,
                                         limit: param.noOfRecords || null,
                                         startDate: dbTask[0].current_start_date ? new Date(dbTask[0].current_start_date) : null,
-                                        endDate: dbTask[0].current_end_date ? new Date(dbTask[0].current_end_date): null,
-                                        businessLogic: task.businessLogic
+                                        endDate: dbTask[0].current_end_date ? new Date(dbTask[0].current_end_date) : null,
+                                        businessLogic: task.businessLogic,
+                                        customEventId : clientDefinedCustomEventId
                                     });
                                     const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
 
@@ -425,14 +442,31 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     }
                                 }
 
+                                let clientDefinedCustomEventId;
+                                if (dbTask[0].custom_event_id) {
+                                    const dbCustomEvent = await sequelize.query(`select * from app_events_custom where id=:customEventId`, {
+                                        replacements : {
+                                            customEventId : dbTask[0].custom_event_id
+                                        },
+                                        type: QueryTypes.SELECT,
+                                        nest : true,
+                                        raw : true
+                                    });
+
+                                    if (dbCustomEvent[0]) {
+                                        clientDefinedCustomEventId = dbCustomEvent[0].event_id
+                                    }
+                                }
+
                                 const userUpdateWalletCollection = db.collection(collectionName);
                                 const pipeline = getAggregateQuery({
                                     parameters: task.parameters,
                                     userId,
                                     limit: param.noOfRecords || null,
                                     startDate: dbTask[0].current_start_date ? new Date(dbTask[0].current_start_date) : null,
-                                    endDate: dbTask[0].current_end_date ? new Date(dbTask[0].current_end_date): null,
-                                    businessLogic: task.businessLogic
+                                    endDate: dbTask[0].current_end_date ? new Date(dbTask[0].current_end_date) : null,
+                                    businessLogic: task.businessLogic,
+                                    customEventId : clientDefinedCustomEventId
                                 });
                                 const result = pipeline ? await userUpdateWalletCollection.aggregate(pipeline).toArray() : [];
                                 if (result.length) {
@@ -604,7 +638,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
     }
 
 
-    function getAggregateQuery({parameters, userId, limit, startDate, endDate, businessLogic}) {
+    function getAggregateQuery({parameters, userId, limit, startDate, endDate, businessLogic, customEventId}) {
         console.log('inside getAggregateQuery');
         if (!limit) {
             function buildMatchExpression(condition) {
@@ -631,7 +665,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         })
                     });
                 }
-
+                console.log('buildToMatch expression', expressions);
                 return expressions.length === 1 ? expressions[0] : {$and: expressions};
             }
 
@@ -649,24 +683,45 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         ]
                     };
                 }
+                console.log('clauseToMatch expression', expression);
                 return expression;
             }
 
             let matchConditions = buildMatchExpression(businessLogic);
             matchConditions = Array.isArray(matchConditions) ? matchConditions : [matchConditions];
 
-            let initialMatchStage = {
-                $match: {
-                    userId: userId,
-                    // Dynamically add 'createdAt' conditions based on the presence of 'startDate' and 'endDate'
-                    ...(startDate || endDate ? {
-                        createdAt: {
-                            ...(startDate ? {$gte: startDate} : {}),
-                            ...(endDate ? {$lte: endDate} : {})
-                        }
-                    } : {})
-                },
-            };
+            let initialMatchStage;
+            if (customEventId) {
+                initialMatchStage = {
+                    $match: {
+                        userId: userId,
+                        // Dynamically add 'createdAt' conditions based on the presence of 'startDate' and 'endDate'
+                        ...(startDate || endDate ? {
+                            createdAt: {
+                                ...(startDate ? {$gte: startDate} : {}),
+                                ...(endDate ? {$lte: endDate} : {})
+                            }
+                        } : {}),
+                        'data.defaultParams.eventId': customEventId,
+                    },
+                };
+            }
+
+            if (!customEventId) {
+                initialMatchStage = {
+                    $match: {
+                        userId: userId,
+                        // Dynamically add 'createdAt' conditions based on the presence of 'startDate' and 'endDate'
+                        ...(startDate || endDate ? {
+                            createdAt: {
+                                ...(startDate ? {$gte: startDate} : {}),
+                                ...(endDate ? {$lte: endDate} : {})
+                            }
+                        } : {})
+                    },
+                };
+            }
+
 
             console.log('initialMatchStage', initialMatchStage);
 
@@ -754,18 +809,37 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
             matchConditions = Array.isArray(matchConditions) ? matchConditions : [matchConditions];
 
             // let initialMatchStage = {$match: {userId: userId}};
-            let initialMatchStage = {
-                $match: {
-                    userId: userId,
-                    // Dynamically add 'createdAt' conditions based on the presence of 'startDate' and 'endDate'
-                    ...(startDate || endDate ? {
-                        createdAt: {
-                            ...(startDate ? {$gte: startDate} : {}),
-                            ...(endDate ? {$lte: endDate} : {})
-                        }
-                    } : {})
-                },
-            };
+            let initialMatchStage;
+            if (customEventId) {
+                initialMatchStage = {
+                    $match: {
+                        userId: userId,
+                        // Dynamically add 'createdAt' conditions based on the presence of 'startDate' and 'endDate'
+                        ...(startDate || endDate ? {
+                            createdAt: {
+                                ...(startDate ? {$gte: startDate} : {}),
+                                ...(endDate ? {$lte: endDate} : {})
+                            }
+                        } : {}),
+                        'data.defaultParams.eventId': customEventId,
+                    },
+                };
+            }
+
+            if (!customEventId) {
+                initialMatchStage = {
+                    $match: {
+                        userId: userId,
+                        // Dynamically add 'createdAt' conditions based on the presence of 'startDate' and 'endDate'
+                        ...(startDate || endDate ? {
+                            createdAt: {
+                                ...(startDate ? {$gte: startDate} : {}),
+                                ...(endDate ? {$lte: endDate} : {})
+                            }
+                        } : {})
+                    },
+                };
+            }
 
 // Sort stage by _id in descending order
             let sortStage = {$sort: {_id: -1}};
