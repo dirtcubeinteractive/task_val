@@ -338,8 +338,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         parameters: task.parameters,
                                         userId,
                                         limit: param.noOfRecords || null,
-                                        startDate: dbTask[0].current_start_date || null,
-                                        endDate: dbTask[0].current_end_date || null,
+                                        startDate: dbTask[0].current_start_date ? new Date(dbTask[0].current_start_date) : null,
+                                        endDate: dbTask[0].current_end_date ? new Date(dbTask[0].current_end_date): null,
                                         businessLogic: task.businessLogic
                                     });
                                     const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
@@ -430,8 +430,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     parameters: task.parameters,
                                     userId,
                                     limit: param.noOfRecords || null,
-                                    startDate: dbTask[0].current_start_date || null,
-                                    endDate: dbTask[0].current_end_date || null,
+                                    startDate: dbTask[0].current_start_date ? new Date(dbTask[0].current_start_date) : null,
+                                    endDate: dbTask[0].current_end_date ? new Date(dbTask[0].current_end_date): null,
                                     businessLogic: task.businessLogic
                                 });
                                 const result = pipeline ? await userUpdateWalletCollection.aggregate(pipeline).toArray() : [];
@@ -605,8 +605,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
 
     function getAggregateQuery({parameters, userId, limit, startDate, endDate, businessLogic}) {
-        console.log('inside getAggregateQuery')
-        if (!limit && !startDate && !endDate) {
+        console.log('inside getAggregateQuery');
+        if (!limit) {
             function buildMatchExpression(condition) {
                 let expressions = [];
 
@@ -668,6 +668,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                 },
             };
 
+            console.log('initialMatchStage', initialMatchStage);
+
             let groupStage = {
                 $group: {
                     _id: null,
@@ -696,6 +698,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
             };
 
             let pipeline = [initialMatchStage, groupStage, projectStage];
+
+            console.log('pipeline', JSON.stringify(pipeline));
 
             return pipeline;
         }
