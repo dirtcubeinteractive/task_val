@@ -330,7 +330,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         }
                                     });
                                     const ids = dbTaskLessThanCurrentSortingOrder.map(task => `'${task.id}'`).join(', ');
-                                    const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids}) and user_id=:userId and created_at >=:currentStartDate and created_at<=:currentEndDate;;`, {
+                                    const dbTaskBusWithTaskIds = await sequelize.query(`select id from task_bus where task_id in (${ids}) and user_id=:userId and created_at >=:currentStartDate and created_at<=:currentEndDate;`, {
                                         type: QueryTypes.SELECT,
                                         replacements: {
                                             userId: userId,
@@ -476,11 +476,25 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 }
 
                                 const userUpdateWalletCollection = db.collection(collectionName);
+
+                                let startDate = param.noOfRecords === 'all' ? null : dbTask[0].current_start_date ? new Date(dbTask[0].current_start_date) : null;
+                                const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId order by created_at desc limit 1;`, {
+                                    type : QueryTypes.SELECT,
+                                    replacements : {
+                                        taskId: task.taskId,
+                                        userId : userId
+                                    }
+                                });
+
+                                if (dbTaskBus.length && dbTaskBus[0].created_at > startDate) {
+                                    startDate = dbTaskBus[0].created_at;
+                                }
+
                                 const pipeline = getAggregateQuery({
                                     parameters: task.parameters,
                                     userId,
                                     limit: param.noOfRecords || null,
-                                    startDate: dbTask[0].current_start_date ? new Date(dbTask[0].current_start_date) : null,
+                                    startDate: startDate,
                                     endDate: dbTask[0].current_end_date ? new Date(dbTask[0].current_end_date) : null,
                                     businessLogic: task.businessLogic,
                                     customEventId : clientDefinedCustomEventId
