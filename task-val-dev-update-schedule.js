@@ -368,7 +368,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         parameters: task.parameters,
                                         userId,
                                         limit: param.noOfRecords || null,
-                                        startDate: dbTask[0].current_start_date ? new Date(dbTask[0].current_start_date) : null,
+                                        startDate: param.noOfRecords === 'all' ? null : dbTask[0].current_start_date ? new Date(dbTask[0].current_start_date) : null,
                                         endDate: dbTask[0].current_end_date ? new Date(dbTask[0].current_end_date) : null,
                                         businessLogic: task.businessLogic,
                                         customEventId : clientDefinedCustomEventId
