@@ -271,20 +271,22 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                     console.log('dbTask', dbTask);
 
-                    const dbTaskBusWithUserId = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId and created_at >=:currentStartDate and created_at<=:currentEndDate;`, {
-                        replacements: {
-                            taskId: task.taskId,
-                            userId: userId,
-                            currentStartDate : dbTask[0].current_start_date,
-                            currentEndDate : dbTask[0].current_end_date
-                        },
-                        type : QueryTypes.SELECT
-                    });
+                    if (!task.isRecurring) {
+                        const dbTaskBusWithUserId = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId and created_at >=:currentStartDate and created_at<=:currentEndDate;`, {
+                            replacements: {
+                                taskId: task.taskId,
+                                userId: userId,
+                                currentStartDate : dbTask[0].current_start_date,
+                                currentEndDate : dbTask[0].current_end_date
+                            },
+                            type : QueryTypes.SELECT
+                        });
 
-                    console.log('dbTaskBusWithUserId', dbTaskBusWithUserId);
+                        console.log('dbTaskBusWithUserId', dbTaskBusWithUserId);
 
-                    if (dbTaskBusWithUserId.length) {
-                        continue;
+                        if (dbTaskBusWithUserId.length) {
+                            continue;
+                        }
                     }
 
                     for (let param of task.parameters) {
@@ -382,6 +384,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                         // Task is everytime
                         if (task.isRecurring) {
+                            console.log('on 385');
                             // const dbDoc = await utsc.find({userId: userId, taskId: task.taskId}).toArray();
                             // if (dbDoc) {
                             //     console.log('Doc found');
