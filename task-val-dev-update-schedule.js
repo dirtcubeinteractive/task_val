@@ -207,7 +207,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         // }
 
                         if (task.taskGroupId) {
-                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive and is_available_for_current_cycle:=isAvailableForCurrentCycle;`, {
+                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive and is_available_for_current_cycle=:isAvailableForCurrentCycle;`, {
                                 type: QueryTypes.SELECT,
                                 replacements: {
                                     taskGroupId: task.taskGroupId,
@@ -609,7 +609,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         });
 
                                         if (!dbTaskGroupBus.length) {
-                                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive and is_available_for_current_cycle:=isAvailableForCurrentCycle;`, {
+                                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive and is_available_for_current_cycle=:isAvailableForCurrentCycle;`, {
                                                 type: QueryTypes.SELECT,
                                                 replacements: {
                                                     taskGroupId: task.taskGroupId,
