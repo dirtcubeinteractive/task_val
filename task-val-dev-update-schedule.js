@@ -150,8 +150,8 @@ app.post('/test-run', async (req, res) => {
                             type: QueryTypes.SELECT,
                             replacements: {
                                 userId: userId,
-                                currentStartDate : dbTask[0].current_start_date,
-                                currentEndDate : dbTask[0].current_end_date
+                                currentStartDate: dbTask[0].current_start_date,
+                                currentEndDate: dbTask[0].current_end_date
                             }
                         });
 
@@ -165,8 +165,8 @@ app.post('/test-run', async (req, res) => {
                             replacements: {
                                 taskId: task.taskId,
                                 userId: userId,
-                                currentStartDate : dbTask[0].current_start_date,
-                                currentEndDate : dbTask[0].current_end_date
+                                currentStartDate: dbTask[0].current_start_date,
+                                currentEndDate: dbTask[0].current_end_date
                             },
                             raw: true,
                             nest: true
@@ -185,33 +185,34 @@ app.post('/test-run', async (req, res) => {
                         // const isPassedTaskConfigValidationCriteria = taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAtMidnight, lastSundayAtMidnight);
 
                         // if (isPassedTaskConfigValidationCriteria) {
-                            const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                            await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+                        const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                        await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
 values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
-                                type: QueryTypes.INSERT,
-                                nest: true
-                            });
+                            type: QueryTypes.INSERT,
+                            nest: true
+                        });
 
-                            await utsc.insertOne({
-                                taskId: task.taskId,
-                                projectId: projectId,
-                                userId: userId,
-                                status: 'succeed'
-                            });
+                        await utsc.insertOne({
+                            taskId: task.taskId,
+                            projectId: projectId,
+                            userId: userId,
+                            status: 'succeed'
+                        });
 
-                            await axios.post('http://localhost:3000/v1/task/grantReward', {
-                                userId: userId,
-                                eventId: eventId,
-                                taskId: task.taskId
-                            });
+                        await axios.post('http://localhost:3000/v1/task/grantReward', {
+                            userId: userId,
+                            eventId: eventId,
+                            taskId: task.taskId
+                        });
                         // }
 
                         if (task.taskGroupId) {
-                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive;`, {
+                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive and is_available_for_current_cycle:=isAvailableForCurrentCycle;`, {
                                 type: QueryTypes.SELECT,
                                 replacements: {
                                     taskGroupId: task.taskGroupId,
-                                    archive: false
+                                    archive: false,
+                                    isAvailableForCurrentCycle: true
                                 },
                                 nest: true,
                                 raw: true
@@ -276,10 +277,10 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             replacements: {
                                 taskId: task.taskId,
                                 userId: userId,
-                                currentStartDate : dbTask[0].current_start_date,
-                                currentEndDate : dbTask[0].current_end_date
+                                currentStartDate: dbTask[0].current_start_date,
+                                currentEndDate: dbTask[0].current_end_date
                             },
-                            type : QueryTypes.SELECT
+                            type: QueryTypes.SELECT
                         });
 
                         console.log('dbTaskBusWithUserId', dbTaskBusWithUserId);
@@ -334,8 +335,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         type: QueryTypes.SELECT,
                                         replacements: {
                                             userId: userId,
-                                            currentStartDate : dbTask[0].current_start_date,
-                                            currentEndDate : dbTask[0].current_end_date
+                                            currentStartDate: dbTask[0].current_start_date,
+                                            currentEndDate: dbTask[0].current_end_date
                                         }
                                     });
 
@@ -348,12 +349,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 let clientDefinedCustomEventId;
                                 if (dbTask[0].custom_event_id) {
                                     const dbCustomEvent = await sequelize.query(`select * from app_events_custom where id=:customEventId`, {
-                                        replacements : {
-                                            customEventId : dbTask[0].custom_event_id
+                                        replacements: {
+                                            customEventId: dbTask[0].custom_event_id
                                         },
                                         type: QueryTypes.SELECT,
-                                        nest : true,
-                                        raw : true
+                                        nest: true,
+                                        raw: true
                                     });
 
                                     if (dbCustomEvent[0]) {
@@ -371,7 +372,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         startDate: param.noOfRecords === 'all' ? null : dbTask[0].current_start_date ? new Date(dbTask[0].current_start_date) : null,
                                         endDate: dbTask[0].current_end_date ? new Date(dbTask[0].current_end_date) : null,
                                         businessLogic: task.businessLogic,
-                                        customEventId : clientDefinedCustomEventId
+                                        customEventId: clientDefinedCustomEventId
                                     });
                                     const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
 
@@ -449,8 +450,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         type: QueryTypes.SELECT,
                                         replacements: {
                                             userId: userId,
-                                            currentStartDate : dbTask[0].current_start_date,
-                                            currentEndDate : dbTask[0].current_end_date
+                                            currentStartDate: dbTask[0].current_start_date,
+                                            currentEndDate: dbTask[0].current_end_date
                                         }
                                     });
 
@@ -462,12 +463,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 let clientDefinedCustomEventId;
                                 if (dbTask[0].custom_event_id) {
                                     const dbCustomEvent = await sequelize.query(`select * from app_events_custom where id=:customEventId`, {
-                                        replacements : {
-                                            customEventId : dbTask[0].custom_event_id
+                                        replacements: {
+                                            customEventId: dbTask[0].custom_event_id
                                         },
                                         type: QueryTypes.SELECT,
-                                        nest : true,
-                                        raw : true
+                                        nest: true,
+                                        raw: true
                                     });
 
                                     if (dbCustomEvent[0]) {
@@ -479,10 +480,10 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                                 let startDate = param.noOfRecords === 'all' ? null : dbTask[0].current_start_date ? new Date(dbTask[0].current_start_date) : null;
                                 const dbTaskBus = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId order by created_at desc limit 1;`, {
-                                    type : QueryTypes.SELECT,
-                                    replacements : {
+                                    type: QueryTypes.SELECT,
+                                    replacements: {
                                         taskId: task.taskId,
-                                        userId : userId
+                                        userId: userId
                                     }
                                 });
 
@@ -497,7 +498,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     startDate: startDate,
                                     endDate: dbTask[0].current_end_date ? new Date(dbTask[0].current_end_date) : null,
                                     businessLogic: task.businessLogic,
-                                    customEventId : clientDefinedCustomEventId
+                                    customEventId: clientDefinedCustomEventId
                                 });
                                 const result = pipeline ? await userUpdateWalletCollection.aggregate(pipeline).toArray() : [];
                                 if (result.length) {
@@ -546,8 +547,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         replacements: {
                                             taskId: task.taskId,
                                             userId: userId,
-                                            currentStartDate : dbTask[0].current_start_date,
-                                            currentEndDate : dbTask[0].current_end_date
+                                            currentStartDate: dbTask[0].current_start_date,
+                                            currentEndDate: dbTask[0].current_end_date
                                         },
                                         raw: true,
                                         nest: true
@@ -567,25 +568,25 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     // console.log('isPassedTaskConfigValidationCriteria', isPassedTaskConfigValidationCriteria);
 
                                     // if (isPassedTaskConfigValidationCriteria) {
-                                        const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                                        console.log('task passed');
-                                        await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+                                    const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                                    console.log('task passed');
+                                    await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
 values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
-                                            type: QueryTypes.INSERT,
-                                            nest: true
-                                        });
+                                        type: QueryTypes.INSERT,
+                                        nest: true
+                                    });
 
-                                        await utsc.insertOne({
-                                            taskId: task.taskId,
-                                            projectId: projectId,
-                                            userId: userId,
-                                            status: 'succeed'
-                                        });
-                                        // await axios.post('http://localhost:3000/v1/task/grantReward', {
-                                        //     userId: userId,
-                                        //     eventId: eventId,
-                                        //     taskId: task.taskId
-                                        // });
+                                    await utsc.insertOne({
+                                        taskId: task.taskId,
+                                        projectId: projectId,
+                                        userId: userId,
+                                        status: 'succeed'
+                                    });
+                                    // await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                    //     userId: userId,
+                                    //     eventId: eventId,
+                                    //     taskId: task.taskId
+                                    // });
                                     // }
 
                                     if (task.taskGroupId) {
@@ -600,20 +601,21 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                                         const dbTaskGroupBus = await sequelize.query(`select * from task_bus where task_group_id='${task.taskGroupId}' and user_id='${userId}' and created_at >=:currentStartDate and created_at<=:currentEndDate order by created_at desc limit 1;`, {
                                             type: QueryTypes.SELECT,
-                                            replacements : {
-                                                currentStartDate : dbTaskGroup[0].current_start_date,
-                                                currentEndDate : dbTaskGroup[0].current_end_date
+                                            replacements: {
+                                                currentStartDate: dbTaskGroup[0].current_start_date,
+                                                currentEndDate: dbTaskGroup[0].current_end_date
                                             },
                                             nest: true,
                                             raw: true
                                         });
 
                                         if (!dbTaskGroupBus.length) {
-                                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive;`, {
+                                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive and is_available_for_current_cycle:=isAvailableForCurrentCycle;`, {
                                                 type: QueryTypes.SELECT,
                                                 replacements: {
                                                     taskGroupId: task.taskGroupId,
-                                                    archive: false
+                                                    archive: false,
+                                                    isAvailableForCurrentCycle : true
                                                 },
                                                 nest: true,
                                                 raw: true
@@ -624,9 +626,9 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                             const noOfTasksCompleted = await sequelize.query(`select count(*) from task_bus where task_id in (${ids}) and user_id='${userId}' and created_at >=:currentStartDate and created_at<=:currentEndDate;`,
                                                 {
                                                     type: QueryTypes.SELECT,
-                                                    replacements : {
-                                                        currentStartDate : dbTaskGroup[0].current_start_date,
-                                                        currentEndDate : dbTaskGroup[0].current_end_date
+                                                    replacements: {
+                                                        currentStartDate: dbTaskGroup[0].current_start_date,
+                                                        currentEndDate: dbTaskGroup[0].current_end_date
                                                     },
                                                 });
                                             if (Number(noOfTasksCompleted[0].count) >= noOfConfigTasks.length) {
@@ -675,8 +677,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
 
     function getAggregateQuery({parameters, userId, limit, startDate, endDate, businessLogic, customEventId}) {
-        console.log('inside getAggregateQuery');
-        if (!limit) {
+        if (!limit || !Number(limit)) {
             function buildMatchExpression(condition) {
                 let expressions = [];
 
@@ -795,7 +796,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
             return pipeline;
         }
 
-        if (limit) {
+        if (limit && Number(limit)) {
             function buildMatchExpression(condition) {
                 let expressions = [];
 
