@@ -582,12 +582,11 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         userId: userId,
                                         status: 'succeed'
                                     });
-                                    // await axios.post('http://localhost:3000/v1/task/grantReward', {
-                                    //     userId: userId,
-                                    //     eventId: eventId,
-                                    //     taskId: task.taskId
-                                    // });
-                                    // }
+                                    await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                        userId: userId,
+                                        eventId: eventId,
+                                        taskId: task.taskId
+                                    });
 
                                     if (task.taskGroupId) {
                                         const dbTaskGroup = await sequelize.query(`select * from task_groups where id=:taskGroupId`, {
