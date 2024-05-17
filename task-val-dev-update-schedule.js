@@ -151,7 +151,7 @@ app.post('/test-run', async (req, res) => {
                             replacements: {
                                 userId: userId,
                                 currentStartDate: dbTask[0].current_start_date,
-                                currentEndDate: dbTask[0].current_end_date
+                                currentEndDate: dbTask[0].current_end_date ? dbTask[0].current_end_date : new Date().toISOString()
                             }
                         });
 
@@ -166,7 +166,7 @@ app.post('/test-run', async (req, res) => {
                                 taskId: task.taskId,
                                 userId: userId,
                                 currentStartDate: dbTask[0].current_start_date,
-                                currentEndDate: dbTask[0].current_end_date
+                                currentEndDate: dbTask[0].current_end_date ? dbTask[0].current_end_date : new Date().toISOString()
                             },
                             raw: true,
                             nest: true
@@ -278,7 +278,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 taskId: task.taskId,
                                 userId: userId,
                                 currentStartDate: dbTask[0].current_start_date,
-                                currentEndDate: dbTask[0].current_end_date
+                                currentEndDate: dbTask[0].current_end_date ? dbTask[0].current_end_date : new Date().toISOString()
                             },
                             type: QueryTypes.SELECT
                         });
@@ -286,6 +286,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         console.log('dbTaskBusWithUserId', dbTaskBusWithUserId);
 
                         if (dbTaskBusWithUserId.length) {
+                            shouldEvaluate = false
                             continue;
                         }
                     }
@@ -298,27 +299,22 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             console.log('dbTask[0].status', dbTask[0].status);
 
                             if (dbTask.length && dbTask[0].status !== 'in progress') {
+                                console.log('setting up status to false')
                                 shouldEvaluate = false;
                             }
+
+                            console.log('dbTask.length', dbTask.length);
+                            console.log('dbTask[0].is_available_for_current_cycle === true', dbTask[0].is_available_for_current_cycle === true);
+                            console.log('dbTask[0].status === \'in progress\'', dbTask[0].status === 'in progress');
 
                             if (dbTask.length
                                 && dbTask[0].is_available_for_current_cycle === true
                                 && dbTask[0].status === 'in progress') {
-                                // get count of all the task of sorting order less than dbTask[0].sorting_order
-                                // if count is === current sorting order - 1
-                                // let startDate = dbTask[0].current_start_date;
-                                // if (dbTask[0].task_group_id && dbTask[0].type === 'daily') {
-                                //     startDate = getTodayAtMidnight();
-                                // }
-                                //
-                                // if (dbTask[0].task_group_id && dbTask[0].type === 'weekly') {
-                                //     startDate = getLastSundayAtMidnight();
-                                // }
+
 
                                 console.log('dbTask[0].sorting_order', dbTask[0].sorting_order);
                                 console.log('paramName', param.parameterName);
                                 console.log('param.incrementalType', param.incrementalType);
-
 
                                 if (dbTask[0].task_group_id && dbTask[0].sorting_order > 1 && dbTask[0].type === 'static') {
                                     const currentSortingOrder = dbTask[0].sorting_order;
@@ -336,8 +332,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         replacements: {
                                             userId: userId,
                                             currentStartDate: dbTask[0].current_start_date,
-                                            currentEndDate: dbTask[0].current_end_date
-                                        }
+                                            currentEndDate: dbTask[0].current_end_date ? dbTask[0].current_end_date : new Date().toISOString()
+                                        },
                                     });
 
                                     if (currentSortingOrder > 1 && currentSortingOrder - 1 > dbTaskBusWithTaskIds.length) {
@@ -554,19 +550,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         nest: true
                                     });
 
-                                    // Task validation logic criteria
-                                    // 1. If no task has been found in task bus
-                                    // 2. If task is recurring
-                                    // 3. If task has been found in task bus and task type is daily and task bus created at is less than today's 12.00 AM
-                                    // 4. If task has been found in task bus and task type is weekly and task bus created at is less than last Sunday 12.00 AM
-
-                                    // const createdAtLocal = dbTaskBus.length ? dbTaskBus[0].created_at : null;
-                                    // const todayAtMidnight = getTodayAtMidnight();
-                                    // const lastSundayAtMidnight = getLastSundayAtMidnight();
-
-                                    // const isPassedTaskConfigValidationCriteria = taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAtMidnight, lastSundayAtMidnight);
-                                    // console.log('isPassedTaskConfigValidationCriteria', isPassedTaskConfigValidationCriteria);
-
                                     // if (isPassedTaskConfigValidationCriteria) {
                                     const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
                                     console.log('task passed');
@@ -614,7 +597,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                                 replacements: {
                                                     taskGroupId: task.taskGroupId,
                                                     archive: false,
-                                                    isAvailableForCurrentCycle : true
+                                                    isAvailableForCurrentCycle: true
                                                 },
                                                 nest: true,
                                                 raw: true
