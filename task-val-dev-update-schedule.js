@@ -40,7 +40,6 @@ function taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAt
 
 app.post('/test-run', async (req, res) => {
     let {eventId, projectId, parameterIds, userId, paramDetails, levelSystemDetails, collectionName} = req.body; // You should replace this with the actual way to extract these values from the event
-    console.log('paramDetails', paramDetails);
     let originalParamDetails = {...paramDetails};
 
     const sequelize = new Sequelize(
@@ -89,10 +88,6 @@ app.post('/test-run', async (req, res) => {
                 {levelSystemLevelDetails: {$exists: false}})
         }
 
-        console.log('eventId', eventId);
-        console.log('projectId', projectId);
-        console.log('parameterIds', parameterIds)
-
         let tasks;
         if (parameterIds.length) {
             tasks = await taskParametersCollection.find({
@@ -117,8 +112,6 @@ app.post('/test-run', async (req, res) => {
                 "parameters": null,
             }).toArray();
         }
-
-        console.log('tasks', tasks);
 
         for (let task of tasks) {
             try {
@@ -270,8 +263,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         nest: true
                     });
 
-                    console.log('dbTask', dbTask);
-
                     if (!task.isRecurring) {
                         const dbTaskBusWithUserId = await sequelize.query(`select * from task_bus where task_id=:taskId and user_id=:userId and created_at >=:currentStartDate and created_at<=:currentEndDate;`, {
                             replacements: {
@@ -283,8 +274,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             type: QueryTypes.SELECT
                         });
 
-                        console.log('dbTaskBusWithUserId', dbTaskBusWithUserId);
-
                         if (dbTaskBusWithUserId.length) {
                             shouldEvaluate = false
                             continue;
@@ -294,27 +283,13 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                     for (let param of task.parameters) {
                         // Task is one time
                         if (!task.isRecurring) {
-                            console.log('task name', dbTask[0].name)
-
-                            console.log('dbTask[0].status', dbTask[0].status);
-
                             if (dbTask.length && dbTask[0].status !== 'in progress') {
-                                console.log('setting up status to false')
                                 shouldEvaluate = false;
                             }
-
-                            console.log('dbTask.length', dbTask.length);
-                            console.log('dbTask[0].is_available_for_current_cycle === true', dbTask[0].is_available_for_current_cycle === true);
-                            console.log('dbTask[0].status === \'in progress\'', dbTask[0].status === 'in progress');
 
                             if (dbTask.length
                                 && dbTask[0].is_available_for_current_cycle === true
                                 && dbTask[0].status === 'in progress') {
-
-
-                                console.log('dbTask[0].sorting_order', dbTask[0].sorting_order);
-                                console.log('paramName', param.parameterName);
-                                console.log('param.incrementalType', param.incrementalType);
 
                                 if (dbTask[0].task_group_id && dbTask[0].sorting_order > 1 && dbTask[0].type === 'static') {
                                     const currentSortingOrder = dbTask[0].sorting_order;
@@ -381,7 +356,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                         // Task is everytime
                         if (task.isRecurring) {
-                            console.log('on 385');
                             // const dbDoc = await utsc.find({userId: userId, taskId: task.taskId}).toArray();
                             // if (dbDoc) {
                             //     console.log('Doc found');
@@ -417,15 +391,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     raw: true,
                                     nest: true
                                 });
-
-                                // let startDate;
-                                // if (dbTask.length && dbTask[0] && dbTask[0].type === 'daily') {
-                                //     startDate = getTodayAtMidnight();
-                                // }
-                                //
-                                // if (dbTask.length && dbTask[0] && dbTask[0].type === 'weekly') {
-                                //     startDate = getLastSundayAtMidnight();
-                                // }
 
                                 if (dbTask.length && dbTask[0].status !== 'in progress') {
                                     shouldEvaluate = false;
@@ -505,16 +470,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                     }
 
                     let ruleEngine = new Engine();
-                    console.log('task.businessLogic', task.businessLogic);
                     ruleEngine.addRule({
                         conditions: task.businessLogic,
                         name: 'test',
                         event: '',
                         onFailure: async () => {
-                            console.log('task failed');
-                            console.log('originalParamDetails at 423', originalParamDetails);
                             paramDetails = originalParamDetails;
-                            console.log('paramDetails after reset 419', paramDetails);
                             if (taskValidationInit) {
                                 await utsc.insertOne({
                                     taskId: task.taskId,
@@ -525,10 +486,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             }
                         },
                         onSuccess: async () => {
-                            console.log('originalParamDetails at 435', originalParamDetails);
                             paramDetails = originalParamDetails;
-                            console.log('paramDetails after reset 431', paramDetails);
-                            console.log('shouldEvaluate', shouldEvaluate);
                             if (shouldEvaluate) {
                                 const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
                                     replacements: {
@@ -552,7 +510,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                                     // if (isPassedTaskConfigValidationCriteria) {
                                     const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                                    console.log('task passed');
                                     await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
 values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
                                         type: QueryTypes.INSERT,
@@ -636,7 +593,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             }
                         }
                     });
-                    console.log('paramDetails before sending to BL', paramDetails);
                     await ruleEngine.run(paramDetails);
                     ruleEngine.stop();
                 }
@@ -684,7 +640,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         })
                     });
                 }
-                console.log('buildToMatch expression', expressions);
                 return expressions.length === 1 ? expressions[0] : {$and: expressions};
             }
 
@@ -702,7 +657,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                         ]
                     };
                 }
-                console.log('clauseToMatch expression', expression);
                 return expression;
             }
 
@@ -741,9 +695,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                 };
             }
 
-
-            console.log('initialMatchStage', initialMatchStage);
-
             let groupStage = {
                 $group: {
                     _id: null,
@@ -772,8 +723,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
             };
 
             let pipeline = [initialMatchStage, groupStage, projectStage];
-
-            console.log('pipeline', JSON.stringify(pipeline));
 
             return pipeline;
         }
