@@ -412,7 +412,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         replacements: {
                                             userId: userId,
                                             currentStartDate: dbTask[0].current_start_date,
-                                            currentEndDate: dbTask[0].current_end_date
+                                            currentEndDate: dbTask[0].current_end_date ? dbTask[0].current_end_date : new Date().toISOString()
                                         }
                                     });
 
@@ -502,7 +502,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                             taskId: task.taskId,
                                             userId: userId,
                                             currentStartDate: dbTask[0].current_start_date,
-                                            currentEndDate: dbTask[0].current_end_date
+                                            currentEndDate: dbTask[0].current_end_date ? dbTask[0].current_end_date : new Date().toISOString()
                                         },
                                         raw: true,
                                         nest: true
@@ -542,7 +542,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                             type: QueryTypes.SELECT,
                                             replacements: {
                                                 currentStartDate: dbTaskGroup[0].current_start_date,
-                                                currentEndDate: dbTaskGroup[0].current_end_date
+                                                currentEndDate: dbTask[0].current_end_date ? dbTask[0].current_end_date : new Date().toISOString()
                                             },
                                             nest: true,
                                             raw: true
@@ -567,8 +567,9 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                                     type: QueryTypes.SELECT,
                                                     replacements: {
                                                         currentStartDate: dbTaskGroup[0].current_start_date,
-                                                        currentEndDate: dbTaskGroup[0].current_end_date
+                                                        currentEndDate: dbTask[0].current_end_date ? dbTask[0].current_end_date : new Date().toISOString()
                                                     },
+                                                    logging : console.log
                                                 });
                                             if (Number(noOfTasksCompleted[0].count) >= noOfConfigTasks.length) {
                                                 const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
@@ -603,12 +604,14 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
         return res.json({success: true})
     } catch (err) {
-        console.log('error', err);
+        // console.log('error', err);
         // return res.status(500).json({error: err});
     } finally {
         // Close Mongoose connection
+        console.log('closing mongodb connection')
         await client.close();
 
+        console.log('closing sequelize connection')
         // Close Sequelize connection
         await sequelize.close();
     }
