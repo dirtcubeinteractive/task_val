@@ -15,7 +15,3 @@ phases:
     commands:
       - echo "Uploading deploy.zip to S3..."
       - aws s3 cp deploy.zip s3://codepipeline-ap-south-1-96296655637/specterapp-productio/deploy.zip
-
-  artifacts:
-    files:
-      - deploy.zip
