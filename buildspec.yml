@@ -4,7 +4,7 @@ phases:
   install:
     commands:
       - echo "Installing zip utility..."
-      - apt-get install zip
+      - yum install zip -y  # Using yum to install zip
 
   build:
     commands:
