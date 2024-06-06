@@ -11,7 +11,7 @@ phases:
       - echo "Zipping index.js..."
       - zip deploy.zip index.js
 
-  post_build:
-    commands:
-      - echo "Updating Lambda functions..."
-      - aws lambda update-function-code --function-name 24-wallet_balance_updated --zip-file fileb://deploy.zip
+#  post_build:
+#    commands:
+#      - echo "Updating Lambda functions..."
+#      - aws lambda update-function-code --function-name 24-wallet_balance_updated --zip-file fileb://deploy.zip
