@@ -10,8 +10,3 @@ phases:
     commands:
       - echo "Zipping index.js..."
       - zip deploy.zip index.js
-
-  post_build:
-    commands:
-      - echo "Uploading deploy.zip to S3..."
-      - aws s3 cp deploy.zip s3://codepipeline-ap-south-1-96296655637/specterapp-productio/deploy.zip
