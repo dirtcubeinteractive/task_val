@@ -11,7 +11,11 @@ phases:
       - echo "Zipping index.js..."
       - zip deploy.zip index.js
 
-#  post_build:
-#    commands:
-#      - echo "Updating Lambda functions..."
-#      - aws lambda update-function-code --function-name 24-wallet_balance_updated --zip-file fileb://deploy.zip
+  post_build:
+    commands:
+      - echo "Uploading deploy.zip to S3..."
+      - aws s3 cp deploy.zip s3://codepipeline-ap-south-1-96296655637/specterapp-productio/deploy.zip
+
+  artifacts:
+    files:
+      - deploy.zip
