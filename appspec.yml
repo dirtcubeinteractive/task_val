@@ -1,0 +1,9 @@
+version: 0.0
+Resources:
+  - LambdaFunction:
+      Name: "24-wallet_balance_updated"
+hooks:
+  AfterAllowTraffic:
+    - location: scripts/update_lambda_code.sh
+      timeout: 300
+      runas: root

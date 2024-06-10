@@ -4,14 +4,19 @@ phases:
   install:
     commands:
       - echo "Installing zip utility..."
-      - apt-get install zip
+      - apt-get update -y
+      - apt-get install zip -y
 
   build:
     commands:
-      - echo "Zipping index.js..."
-      - zip deploy.zip index.js
+      - echo "Making update_lambda_code.sh executable..."
+      - chmod +x scripts/update_lambda_code.sh
+      - echo "Zipping index.js, appspec.yml, and scripts..."
+      - zip -r deploy.zip index.js appspec.yml scripts/
 
 artifacts:
   files:
     - deploy.zip
   discard-paths: yes
+  base-directory: .
+  name: deploy.zip
