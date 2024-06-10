@@ -10,7 +10,7 @@ phases:
   build:
     commands:
       - echo "Making update_lambda_code.sh executable..."
-      - chmod +x scripts/update_lambda_code.sh
+      - chmod +x scripts/update-lambda-code.sh
       - echo "Zipping index.js, appspec.yml, and scripts..."
       - zip -r deploy.zip index.js appspec.yml scripts/
 
