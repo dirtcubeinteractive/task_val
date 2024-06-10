@@ -2,10 +2,13 @@ version: 0.2
 
 phases:
   install:
+    runtime-versions:
+      nodejs: 14
     commands:
       - echo "Installing zip utility..."
       - apt-get update -y
       - apt-get install zip -y
+      - apt-get install awscli -y  # Ensure awscli is installed
 
   pre_build:
     commands:
@@ -18,6 +21,8 @@ phases:
     commands:
       - echo "Zipping index.js, appspec.yml, and scripts..."
       - zip -r deploy.zip index.js appspec.yml scripts/
+      - echo "Updating Lambda function..."
+      - aws lambda update-function-code --function-name 24-wallet_balance_updated --zip-file fileb://deploy.zip
 
 artifacts:
   files:
