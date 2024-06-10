@@ -7,10 +7,15 @@ phases:
       - apt-get update -y
       - apt-get install zip -y
 
+  pre_build:
+    commands:
+      - echo "Making sure the scripts directory exists..."
+      - ls -la scripts/
+      - echo "Making update-lambda-code.sh executable..."
+      - chmod +x scripts/update-lambda-code.sh
+
   build:
     commands:
-      - echo "Making update_lambda_code.sh executable..."
-      - chmod +x scripts/update-lambda-code.sh
       - echo "Zipping index.js, appspec.yml, and scripts..."
       - zip -r deploy.zip index.js appspec.yml scripts/
 
