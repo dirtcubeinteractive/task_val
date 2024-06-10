@@ -10,3 +10,8 @@ phases:
     commands:
       - echo "Zipping index.js..."
       - zip deploy.zip index.js
+
+artifacts:
+  files:
+    - deploy.zip
+  discard-paths: yes
