@@ -11,8 +11,8 @@ phases:
 
   build:
     commands:
-      - echo "Zipping files including appspec.yml, index.js, and any scripts..."
-      - zip -r deploy.zip index.js appspec.yml scripts/  # Zip all necessary files
+      - echo "Zipping files including AppSpec.yml, index.js, and any scripts..."
+      - zip -r deploy.zip index.js AppSpec.yml scripts/  # Zip all necessary files
 
   post_build:
     commands:
