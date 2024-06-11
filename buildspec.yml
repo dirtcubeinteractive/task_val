@@ -7,15 +7,17 @@ phases:
     commands:
       - echo "Installing required packages..."
       - apt-get update -y
-      - apt-get install zip -y  # Install zip to package files
-      - apt-get install awscli -y  # Ensure AWS CLI is installed
+      - apt-get install zip awscli -y
 
   build:
     commands:
       - echo "Zipping files including appspec.yml, index.js, and any scripts..."
-      - zip -r deploy.zip index.js appspec.yml scripts/  # Ensure appspec.yml is in the root of the zip file
+      - zip -r deploy.zip index.js appspec.yml scripts/  # Zip all necessary files
+
+  post_build:
+    commands:
       - echo "Uploading deploy.zip to S3 bucket 'specter-build'..."
-      - aws s3 cp deploy.zip s3://specter-build/deploy.zip  # Upload the deployment package to S3
+      - aws s3 cp deploy.zip s3://specter-build/deploy.zip
 
 artifacts:
   files:
