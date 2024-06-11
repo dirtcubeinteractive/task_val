@@ -20,5 +20,6 @@ phases:
 artifacts:
   files:
     - deploy.zip
+  name: deploy-output
   discard-paths: yes
   base-directory: .
