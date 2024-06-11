@@ -8,6 +8,7 @@ const axios = require('axios');
 exports.handler = async (event) => {
 
     let {eventId, projectId, parameterIds, userId, paramDetails, levelSystemDetails, collectionName} = event.detail; // You should replace this with the actual way to extract these values from the event
+    console.log('here');
     let originalParamDetails = {...paramDetails};
 
 

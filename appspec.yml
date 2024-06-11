@@ -1,9 +1,12 @@
 version: 0.0
 Resources:
-  - LambdaFunction:
-      Name: "24-wallet_balance_updated"
-hooks:
-  AfterAllowTraffic:
-    - location: scripts/update-lambda-code.sh
-      timeout: 300
-      runas: root
+  - myLambdaFunction:
+      Type: AWS::Lambda::Function
+      Properties:
+        Name: "24-wallet_balance_updated"
+        Alias: "wallet_balance-alias"
+        CurrentVersion: "1"
+        TargetVersion: "2"
+#Hooks:
+#  - BeforeAllowTraffic: "LambdaFunctionToValidateBeforeTrafficShift"
+#  - AfterAllowTraffic: "LambdaFunctionToValidateAfterTrafficShift"
