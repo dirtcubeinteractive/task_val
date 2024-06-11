@@ -5,23 +5,28 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
-      - echo "Installing required packages..."
+      - echo "Installing zip utility and AWS CLI..."
       - apt-get update -y
-      - apt-get install zip awscli -y
+      - apt-get install zip -y
+      - apt-get install awscli -y  # Ensure awscli is installed
+
+  pre_build:
+    commands:
+      - echo "Preparing the environment..."
+      - chmod +x scripts/update-lambda-code.sh
 
   build:
     commands:
-      - echo "Zipping files including AppSpec.yml, index.js, and any scripts..."
-      - zip -r deploy.zip index.js AppSpec.yml scripts/  # Zip all necessary files
-
-  post_build:
-    commands:
-      - echo "Uploading deploy.zip to S3 bucket 'specter-build'..."
+      - echo "Zipping files..."
+      - zip -r deploy.zip index.js appspec.yml scripts/
+      - echo "Uploading deploy.zip to S3..."
       - aws s3 cp deploy.zip s3://specter-build/deploy.zip
+      - echo "Updating Lambda function from S3..."
+      - aws lambda update-function-code --function-name 24-wallet_balance_updated --s3-bucket specter-build --s3-key deploy.zip
 
 artifacts:
   files:
     - deploy.zip
-  name: deploy-output
   discard-paths: yes
   base-directory: .
+  name: deploy.zip
