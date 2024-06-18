@@ -332,7 +332,6 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         clientDefinedCustomEventId = dbCustomEvent[0].event_id
                                     }
                                 }
-
                                 if (param.incrementalType === 'cumulative') {
                                     taskValidationInit = true
                                     const userUpdateWalletCollection = db.collection(collectionName);
@@ -568,8 +567,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                                     replacements: {
                                                         currentStartDate: dbTaskGroup[0].current_start_date,
                                                         currentEndDate: dbTask[0].current_end_date ? dbTask[0].current_end_date : new Date().toISOString()
-                                                    },
-                                                    logging : console.log
+                                                    }
                                                 });
                                             if (Number(noOfTasksCompleted[0].count) >= noOfConfigTasks.length) {
                                                 const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
@@ -650,8 +648,13 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                 const param = parameters.find(p => p.parameterName === clause.fact);
                 let expression = {};
 
-                if (param.incrementalType === "cumulative" && clause.operator === "greaterThanInclusive") {
-                    expression = {fact: clause.fact, operator: clause.operator, value: clause.value};
+                if (param.incrementalType === "cumulative") {
+                    expression = {
+                        $or: [
+                            { [`data.defaultParams.${clause.fact}`]: { $exists: true } },
+                            { [`data.customParams.${clause.fact}`]: { $exists: true } }
+                        ]
+                    };
                 } else {
                     expression = {
                         $or: [
@@ -678,7 +681,10 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 ...(endDate ? {$lte: endDate} : {})
                             }
                         } : {}),
-                        'data.defaultParams.eventId': customEventId,
+                        $and: [
+                            ...matchConditions, // Spread the match conditions array into the $and array
+                            {'data.defaultParams.eventId': customEventId}
+                        ]
                     },
                 };
             }
@@ -693,7 +699,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 ...(startDate ? {$gte: startDate} : {}),
                                 ...(endDate ? {$lte: endDate} : {})
                             }
-                        } : {})
+                        } : {}),
+                        $and: matchConditions
                     },
                 };
             }
