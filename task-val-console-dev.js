@@ -640,8 +640,13 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                 const param = parameters.find(p => p.parameterName === clause.fact);
                 let expression = {};
 
-                if (param.incrementalType === "cumulative" && clause.operator === "greaterThanInclusive") {
-                    expression = {fact: clause.fact, operator: clause.operator, value: clause.value};
+                if (param.incrementalType === "cumulative") {
+                    expression = {
+                        $or: [
+                            { [`data.defaultParams.${clause.fact}`]: { $exists: true } },
+                            { [`data.customParams.${clause.fact}`]: { $exists: true } }
+                        ]
+                    };
                 } else {
                     expression = {
                         $or: [
@@ -753,8 +758,13 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                 const param = parameters.find(p => p.parameterName === clause.fact);
                 let expression = {};
 
-                if (param.incrementalType === "cumulative" && clause.operator === "greaterThanInclusive") {
-                    expression = {fact: clause.fact, operator: clause.operator, value: clause.value};
+                if (param.incrementalType === "cumulative") {
+                    expression = {
+                        $or: [
+                            { [`data.defaultParams.${clause.fact}`]: { $exists: true } },
+                            { [`data.customParams.${clause.fact}`]: { $exists: true } }
+                        ]
+                    };
                 } else {
                     expression = {
                         $or: [
