@@ -182,6 +182,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             status: 'succeed'
                         });
 
+                        await axios.post('http://localhost:3000/v1/task/grantReward', {
+                            userId: userId,
+                            eventId: eventId,
+                            taskId: task.taskId
+                        });
+
                         if (task.taskGroupId) {
                             const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive and is_available_for_current_cycle=:isAvailableForCurrentCycle;`, {
                                 type: QueryTypes.SELECT,
@@ -222,6 +228,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                      values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
                                             type: QueryTypes.INSERT,
                                             nest: true
+                                        });
+
+                                        await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                            userId: userId,
+                                            eventId: eventId,
+                                            taskGroupId: task.taskGroupId
                                         });
                                     }
                                 }
@@ -500,6 +512,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         status: 'succeed'
                                     });
 
+                                    await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                        userId: userId,
+                                        eventId: eventId,
+                                        taskId: task.taskId
+                                    });
+
                                     if (task.taskGroupId) {
                                         const dbTaskGroup = await sequelize.query(`select * from task_groups where id=:taskGroupId`, {
                                             replacements: {
@@ -551,6 +569,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                      values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
                                                     type: QueryTypes.INSERT,
                                                     nest: true
+                                                });
+
+                                                await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                                    userId: userId,
+                                                    eventId: eventId,
+                                                    taskGroupId: task.taskGroupId
                                                 });
                                             }
                                         }
