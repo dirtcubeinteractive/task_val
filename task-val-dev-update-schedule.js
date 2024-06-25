@@ -163,41 +163,29 @@ app.post('/test-run', async (req, res) => {
                             },
                             raw: true,
                             nest: true
-                        })
+                        });
 
-                        // Task validation logic criteria
-                        // 1. If no task has been found in task bus
-                        // 2. If task is recurring
-                        // 3. If task has been found in task bus and task type is daily and task bus created at is less than today's 12.00 AM
-                        // 4. If task has been found in task bus and task type is weekly and task bus created at is less than last Sunday 12.00 AM
-
-                        // const createdAtLocal = dbTaskBus.length ? dbTaskBus[0].created_at : null;
-                        // const todayAtMidnight = getTodayAtMidnight();
-                        // const lastSundayAtMidnight = getLastSundayAtMidnight();
-                        //
-                        // const isPassedTaskConfigValidationCriteria = taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAtMidnight, lastSundayAtMidnight);
-
-                        // if (isPassedTaskConfigValidationCriteria) {
-                        const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                        await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+                        if (!dbTaskBus.length) {
+                            const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                            await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
 values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
-                            type: QueryTypes.INSERT,
-                            nest: true
-                        });
+                                type: QueryTypes.INSERT,
+                                nest: true
+                            });
 
-                        await utsc.insertOne({
-                            taskId: task.taskId,
-                            projectId: projectId,
-                            userId: userId,
-                            status: 'succeed'
-                        });
+                            await utsc.insertOne({
+                                taskId: task.taskId,
+                                projectId: projectId,
+                                userId: userId,
+                                status: 'succeed'
+                            });
 
-                        await axios.post('http://localhost:3000/v1/task/grantReward', {
-                            userId: userId,
-                            eventId: eventId,
-                            taskId: task.taskId
-                        });
-                        // }
+                            await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                userId: userId,
+                                eventId: eventId,
+                                taskId: task.taskId
+                            });
+                        }
 
                         if (task.taskGroupId) {
                             const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive and is_available_for_current_cycle=:isAvailableForCurrentCycle;`, {
