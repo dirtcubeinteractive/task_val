@@ -168,73 +168,75 @@ app.post('/test-run', async (req, res) => {
                             nest: true
                         })
 
-                        const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-                        await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+                        if (!dbTaskBus.length) {
+                            const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                            await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
 values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
-                            type: QueryTypes.INSERT,
-                            nest: true
-                        });
-
-                        await utsc.insertOne({
-                            taskId: task.taskId,
-                            projectId: projectId,
-                            userId: userId,
-                            status: 'succeed'
-                        });
-
-                        await axios.post('http://localhost:3000/v1/task/grantReward', {
-                            userId: userId,
-                            eventId: eventId,
-                            taskId: task.taskId
-                        });
-
-                        if (task.taskGroupId) {
-                            const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive and is_available_for_current_cycle=:isAvailableForCurrentCycle;`, {
-                                type: QueryTypes.SELECT,
-                                replacements: {
-                                    taskGroupId: task.taskGroupId,
-                                    archive: false,
-                                    isAvailableForCurrentCycle: true
-                                },
-                                nest: true,
-                                raw: true
+                                type: QueryTypes.INSERT,
+                                nest: true
                             });
 
-                            const ids = noOfConfigTasks.map(task => `'${task.id}'`).join(', ');
-                            const noOfTasksCompleted = await sequelize.query(`select count(*) from task_bus where task_id in (${ids}) and user_id='${userId}';`, {type: QueryTypes.SELECT});
-                            if (noOfTasksCompleted[0].count >= noOfConfigTasks.length) {
-                                const dbTaskGroup = await sequelize.query(`select * from task_groups where id=:taskGroupId`, {
+                            await utsc.insertOne({
+                                taskId: task.taskId,
+                                projectId: projectId,
+                                userId: userId,
+                                status: 'succeed'
+                            });
+
+                            await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                userId: userId,
+                                eventId: eventId,
+                                taskId: task.taskId
+                            });
+
+                            if (task.taskGroupId) {
+                                const noOfConfigTasks = await sequelize.query(`select id from tasks where task_group_id=:taskGroupId and archive=:archive and is_available_for_current_cycle=:isAvailableForCurrentCycle;`, {
+                                    type: QueryTypes.SELECT,
                                     replacements: {
-                                        taskGroupId: task.taskGroupId
+                                        taskGroupId: task.taskGroupId,
+                                        archive: false,
+                                        isAvailableForCurrentCycle: true
                                     },
-                                    raw: true,
-                                    nest: true
+                                    nest: true,
+                                    raw: true
                                 });
 
-                                if (dbTaskGroup[0].status === 'in progress') {
-                                    const dbTaskGroupTaskBus = await sequelize.query(`select * from task_bus where task_group_id=:taskGroupId`, {
+                                const ids = noOfConfigTasks.map(task => `'${task.id}'`).join(', ');
+                                const noOfTasksCompleted = await sequelize.query(`select count(*) from task_bus where task_id in (${ids}) and user_id='${userId}';`, {type: QueryTypes.SELECT});
+                                if (noOfTasksCompleted[0].count >= noOfConfigTasks.length) {
+                                    const dbTaskGroup = await sequelize.query(`select * from task_groups where id=:taskGroupId`, {
                                         replacements: {
                                             taskGroupId: task.taskGroupId
                                         },
                                         raw: true,
                                         nest: true
-                                    })
+                                    });
 
-                                    if (!dbTaskGroupTaskBus.length || dbTaskGroup[0].is_recurring === true) {
-                                        const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-
-                                        // Task group is completed
-                                        await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-                     values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
-                                            type: QueryTypes.INSERT,
+                                    if (dbTaskGroup[0].status === 'in progress') {
+                                        const dbTaskGroupTaskBus = await sequelize.query(`select * from task_bus where task_group_id=:taskGroupId`, {
+                                            replacements: {
+                                                taskGroupId: task.taskGroupId
+                                            },
+                                            raw: true,
                                             nest: true
-                                        });
+                                        })
 
-                                        await axios.post('http://localhost:3000/v1/task/grantReward', {
-                                            userId: userId,
-                                            eventId: eventId,
-                                            taskGroupId: task.taskGroupId
-                                        });
+                                        if (!dbTaskGroupTaskBus.length || dbTaskGroup[0].is_recurring === true) {
+                                            const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+
+                                            // Task group is completed
+                                            await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
+                     values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
+                                                type: QueryTypes.INSERT,
+                                                nest: true
+                                            });
+
+                                            await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                                userId: userId,
+                                                eventId: eventId,
+                                                taskGroupId: task.taskGroupId
+                                            });
+                                        }
                                     }
                                 }
                             }
@@ -558,8 +560,7 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                                     replacements: {
                                                         currentStartDate: dbTaskGroup[0].current_start_date,
                                                         currentEndDate: dbTask[0].current_end_date ? dbTask[0].current_end_date : new Date().toISOString()
-                                                    },
-                                                    logging : console.log
+                                                    }
                                                 });
                                             if (Number(noOfTasksCompleted[0].count) >= noOfConfigTasks.length) {
                                                 const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
