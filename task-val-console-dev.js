@@ -674,7 +674,10 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 ...(endDate ? {$lte: endDate} : {})
                             }
                         } : {}),
-                        'data.defaultParams.eventId': customEventId,
+                        $and: [
+                            ...matchConditions, // Spread the match conditions array into the $and array
+                            {'data.defaultParams.eventId': customEventId}
+                        ]
                     },
                 };
             }
@@ -689,7 +692,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 ...(startDate ? {$gte: startDate} : {}),
                                 ...(endDate ? {$lte: endDate} : {})
                             }
-                        } : {})
+                        } : {}),
+                        $and: matchConditions
                     },
                 };
             }
