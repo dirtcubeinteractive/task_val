@@ -42,6 +42,7 @@ function taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAt
 
 app.post('/test-run', async (req, res) => {
     let {eventId, projectId, parameterIds, userId, paramDetails, levelSystemDetails, collectionName} = req.body; // You should replace this with the actual way to extract these values from the event
+    console.log('req.body', req.body);
     let originalParamDetails = {...paramDetails};
 
     // Set up Sequelize connection
@@ -183,6 +184,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 status: 'succeed'
                             });
 
+                            console.log('Making api call for grantReward for taskId', task.taskId);
+                            console.log('GrantReward req body', {
+                                userId: userId,
+                                eventId: eventId,
+                                taskId: task.taskId
+                            });
                             await axios.post('http://localhost:3000/v1/task/grantReward', {
                                 userId: userId,
                                 eventId: eventId,
@@ -231,6 +238,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                                 nest: true
                                             });
 
+                                            console.log('Making api call for grantReward for taskGroupId', task.taskGroupId);
+                                            console.log('GrantReward req body', {
+                                                userId: userId,
+                                                eventId: eventId,
+                                                taskGroupId: task.taskGroupId
+                                            });
                                             await axios.post('http://localhost:3000/v1/task/grantReward', {
                                                 userId: userId,
                                                 eventId: eventId,
@@ -514,6 +527,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         status: 'succeed'
                                     });
 
+                                    console.log('Making api call for grantReward for taskId', task.taskId);
+                                    console.log('GrantReward req body', {
+                                        userId: userId,
+                                        eventId: eventId,
+                                        taskId: task.taskId
+                                    });
                                     await axios.post('http://localhost:3000/v1/task/grantReward', {
                                         userId: userId,
                                         eventId: eventId,
@@ -572,6 +591,12 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                                     nest: true
                                                 });
 
+                                                console.log('Making api call for grantReward for taskGroup', task.taskGroupId);
+                                                console.log('GrantReward req body', {
+                                                    userId: userId,
+                                                    eventId: eventId,
+                                                    taskGroupId: task.taskGroupId
+                                                });
                                                 await axios.post('http://localhost:3000/v1/task/grantReward', {
                                                     userId: userId,
                                                     eventId: eventId,
