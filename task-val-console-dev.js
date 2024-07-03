@@ -17,32 +17,48 @@ let startOfWeek = new Date();
 
 require('dotenv').config()
 
-app.listen(4000, () => {
-    console.log('Server has started on PORT 4000');
-    // Initially set the startOfDay and startOfWeek
-    // resetStartOfDay();
-    // resetStartOfWeek();
-    //
-    // // Schedule the startOfDay to reset every 2 minutes
-    // setInterval(resetStartOfDay, 2 * 60 * 1000); // 2 minutes in milliseconds
-    //
-    // // Schedule the startOfWeek to reset every 3 minutes
-    // setInterval(resetStartOfWeek, 3 * 60 * 1000); // 3 minutes in milliseconds
+const winston = require('winston');
+
+const levels = {
+    error: 0,
+    warn: 1,
+    info: 2,
+    http: 3,
+    verbose: 4,
+    debug: 5
+};
+
+winston.addColors({
+    error: 'red',
+    warn: 'yellow',
+    info: 'green',
+    http: 'magenta',
+    verbose: 'cyan',
+    debug: 'blue'
 });
 
-function taskConfigCriteriaValidation(dbTaskBus, dbTask, createdAtLocal, todayAtMidnight, lastSundayAtMidnight) {
-    return !dbTaskBus.length
-        ||
-        dbTask[0].is_recurring === true
-        ||
-        (dbTaskBus.length && dbTask[0].type === 'daily' && createdAtLocal < todayAtMidnight)
-        ||
-        (dbTaskBus.length && dbTask[0].type === 'weekly' && createdAtLocal < lastSundayAtMidnight);
-}
+const logger = winston.createLogger({
+    levels: levels,
+    transports: new winston.transports.Console({
+        format: winston.format.combine(
+            winston.format.timestamp({format: 'YYYY-MM-DD HH:mm:ss'}),
+            winston.format.printf(
+                (info) =>
+                    `${info.timestamp} [${info.level}] [${info.context || ''}]: ${
+                        info.message
+                    } ${JSON.stringify(info.meta)}`
+            )
+        )
+    })
+});
+
+app.listen(4000, () => {
+    logger.info('Server has started on PORT 4000');
+});
 
 app.post('/test-run', async (req, res) => {
     let {eventId, projectId, parameterIds, userId, paramDetails, levelSystemDetails, collectionName} = req.body; // You should replace this with the actual way to extract these values from the event
-    console.log('req.body', req.body);
+    logger.info('req.body', {meta: req.body});
     let originalParamDetails = {...paramDetails};
 
     // Set up Sequelize connection
@@ -97,14 +113,7 @@ app.post('/test-run', async (req, res) => {
             tasks = await taskParametersCollection.find({
                 eventId: eventId, // Use the retrieved event's ID
                 projectId: projectId, // Use the provided projectId
-                $or: orQuery,
-                // "parameters": {
-                //     $elemMatch: {
-                //         "parameterId": {
-                //             $in: parameterIds
-                //         }
-                //     }
-                // },
+                $or: orQuery
             }).toArray();
         }
 
@@ -184,11 +193,13 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                 status: 'succeed'
                             });
 
-                            console.log('Making api call for grantReward for taskId', task.taskId);
-                            console.log('GrantReward req body', {
-                                userId: userId,
-                                eventId: eventId,
-                                taskId: task.taskId
+                            logger.info('Making api call for grantReward for taskId', {meta: task.taskId});
+                            logger.info('GrantReward req body', {
+                                meta: {
+                                    userId: userId,
+                                    eventId: eventId,
+                                    taskId: task.taskId
+                                }
                             });
                             await axios.post('http://localhost:3000/v1/task/grantReward', {
                                 userId: userId,
@@ -238,11 +249,13 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                                 nest: true
                                             });
 
-                                            console.log('Making api call for grantReward for taskGroupId', task.taskGroupId);
-                                            console.log('GrantReward req body', {
-                                                userId: userId,
-                                                eventId: eventId,
-                                                taskGroupId: task.taskGroupId
+                                            logger.info('Making api call for grantReward for taskGroupId', {meta: task.taskGroupId});
+                                            logger.info('GrantReward req body', {
+                                                meta: {
+                                                    userId: userId,
+                                                    eventId: eventId,
+                                                    taskGroupId: task.taskGroupId
+                                                }
                                             });
                                             await axios.post('http://localhost:3000/v1/task/grantReward', {
                                                 userId: userId,
@@ -527,11 +540,13 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                         status: 'succeed'
                                     });
 
-                                    console.log('Making api call for grantReward for taskId', task.taskId);
-                                    console.log('GrantReward req body', {
-                                        userId: userId,
-                                        eventId: eventId,
-                                        taskId: task.taskId
+                                    logger.info('Making api call for grantReward for taskId', {meta: task.taskId});
+                                    logger.info('GrantReward req body', {
+                                        meta: {
+                                            userId: userId,
+                                            eventId: eventId,
+                                            taskId: task.taskId
+                                        }
                                     });
                                     await axios.post('http://localhost:3000/v1/task/grantReward', {
                                         userId: userId,
@@ -591,11 +606,13 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                                     nest: true
                                                 });
 
-                                                console.log('Making api call for grantReward for taskGroup', task.taskGroupId);
-                                                console.log('GrantReward req body', {
-                                                    userId: userId,
-                                                    eventId: eventId,
-                                                    taskGroupId: task.taskGroupId
+                                                logger.info('Making api call for grantReward for taskGroup', {meta: task.taskGroupId});
+                                                logger.info('GrantReward req body', {
+                                                    meta: {
+                                                        userId: userId,
+                                                        eventId: eventId,
+                                                        taskGroupId: task.taskGroupId
+                                                    }
                                                 });
                                                 await axios.post('http://localhost:3000/v1/task/grantReward', {
                                                     userId: userId,
@@ -614,20 +631,20 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                     ruleEngine.stop();
                 }
             } catch (err) {
-                console.log('error', err);
+                logger.error('error', err);
             }
         }
 
         return res.json({success: true})
     } catch (err) {
         // console.log('error', err);
-        // return res.status(500).json({error: err});
+        return res.status(500).json({error: err});
     } finally {
         // Close Mongoose connection
-        console.log('closing mongodb connection')
+        logger.info('closing mongodb connection')
         await client.close();
 
-        console.log('closing sequelize connection')
+        logger.info('closing sequelize connection')
         // Close Sequelize connection
         await sequelize.close();
     }
@@ -669,8 +686,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                 if (param.incrementalType === "cumulative") {
                     expression = {
                         $or: [
-                            { [`data.defaultParams.${clause.fact}`]: { $exists: true } },
-                            { [`data.customParams.${clause.fact}`]: { $exists: true } }
+                            {[`data.defaultParams.${clause.fact}`]: {$exists: true}},
+                            {[`data.customParams.${clause.fact}`]: {$exists: true}}
                         ]
                     };
                 } else {
@@ -791,8 +808,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                 if (param.incrementalType === "cumulative") {
                     expression = {
                         $or: [
-                            { [`data.defaultParams.${clause.fact}`]: { $exists: true } },
-                            { [`data.customParams.${clause.fact}`]: { $exists: true } }
+                            {[`data.defaultParams.${clause.fact}`]: {$exists: true}},
+                            {[`data.customParams.${clause.fact}`]: {$exists: true}}
                         ]
                     };
                 } else {
