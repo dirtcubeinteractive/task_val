@@ -12,9 +12,6 @@ const {QueryTypes} = require("sequelize");
 const {Engine} = require('json-rules-engine');
 const axios = require('axios');
 
-let startOfDay = new Date();
-let startOfWeek = new Date();
-
 require('dotenv').config()
 
 const winston = require('winston');
@@ -899,48 +896,3 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
         }
     }
 })
-
-function parseUTCDateToLocal(utcDateString) {
-    // const utcDate = new Date(utcDateString);
-    // // Adjust to local time by subtracting the timezone offset
-    // return new Date(utcDate.getTime() - utcDate.getTimezoneOffset() * 60000);
-    return utcDateString;
-}
-
-
-function getTodayAtMidnight() {
-    const now = new Date();
-    return new Date(now.setHours(0, 0, 0, 0));
-
-    // For testing purpose day is set to 3 min
-    // return startOfDay;
-}
-
-function getLastSundayAtMidnight() {
-    const now = new Date();
-    // Get the current day of the week, 0 (Sunday) to 6 (Saturday)
-    const today = now.getUTCDay();
-    // Calculate the difference to last Sunday. If today is Sunday, use today's date.
-    let diff = today === 0 ? 0 : -today;
-
-    // Create a new Date object for last Sunday
-    const lastSunday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
-
-    // Set the time to midnight (00:00:00)
-    lastSunday.setUTCHours(0, 0, 0, 0);
-
-    return lastSunday;
-    // // For testing: "Last Sunday at Midnight" is considered as 4 minutes ago
-    // console.log('startOfWeek', startOfWeek);
-    // return startOfWeek;
-}
-
-function resetStartOfDay() {
-    startOfDay = new Date(); // Reset to current time
-    console.log('startOfDay has been reset to:', startOfDay);
-}
-
-function resetStartOfWeek() {
-    startOfWeek = new Date(); // Reset to current time
-    console.log('startOfWeek has been reset to:', startOfWeek);
-}
