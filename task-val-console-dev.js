@@ -177,8 +177,9 @@ app.post('/test-run', async (req, res) => {
 
                         if (!dbTaskBus.length) {
                             const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                            const taskBusId = uuidv4();
                             await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
+values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
                                 type: QueryTypes.INSERT,
                                 nest: true
                             });
@@ -201,7 +202,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                             await axios.post('http://localhost:3000/v1/task/grantReward', {
                                 userId: userId,
                                 eventId: eventId,
-                                taskId: task.taskId
+                                taskId: task.taskId,
+                                taskBusId: taskBusId
                             });
 
                             if (task.taskGroupId) {
@@ -238,10 +240,10 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                                         if (!dbTaskGroupTaskBus.length || dbTaskGroup[0].is_recurring === true) {
                                             const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-
+                                            const taskBusId = uuid_generate_v4();
                                             // Task group is completed
                                             await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-                     values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
+                     values ('${taskBusId}', '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
                                                 type: QueryTypes.INSERT,
                                                 nest: true
                                             });
@@ -257,7 +259,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                             await axios.post('http://localhost:3000/v1/task/grantReward', {
                                                 userId: userId,
                                                 eventId: eventId,
-                                                taskGroupId: task.taskGroupId
+                                                taskGroupId: task.taskGroupId,
+                                                taskBusId: taskBusId
                                             });
                                         }
                                     }
@@ -524,8 +527,9 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
 
                                     // if (isPassedTaskConfigValidationCriteria) {
                                     const taskStatus = dbTask[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
+                                    const taskBusId = uuidv4()
                                     await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
+values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${task.taskId}', null, true, false, now(), now())`, {
                                         type: QueryTypes.INSERT,
                                         nest: true
                                     });
@@ -548,7 +552,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                     await axios.post('http://localhost:3000/v1/task/grantReward', {
                                         userId: userId,
                                         eventId: eventId,
-                                        taskId: task.taskId
+                                        taskId: task.taskId,
+                                        taskBusId: taskBusId
                                     });
 
                                     if (task.taskGroupId) {
@@ -595,10 +600,10 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                                 });
                                             if (Number(noOfTasksCompleted[0].count) >= noOfConfigTasks.length) {
                                                 const taskBusStatus = dbTaskGroup[0].reward_claim === 'automatic' ? 'reward_claimed' : 'completed';
-
+                                                const taskBusId = uuidv4();
                                                 // Task group is completed
                                                 await sequelize.query(`insert into task_bus(id, status, meta, project_id, user_id, task_id, task_group_id, active, archive, created_at, updated_at)
-                     values (uuid_generate_v4(), '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
+                     values ('${taskBusId}', '${taskBusStatus}', null, '${projectId}', '${userId}', null, '${task.taskGroupId}', true, false, now(), now())`, {
                                                     type: QueryTypes.INSERT,
                                                     nest: true
                                                 });
@@ -614,7 +619,8 @@ values (uuid_generate_v4(), '${taskStatus}', null, '${projectId}', '${userId}', 
                                                 await axios.post('http://localhost:3000/v1/task/grantReward', {
                                                     userId: userId,
                                                     eventId: eventId,
-                                                    taskGroupId: task.taskGroupId
+                                                    taskGroupId: task.taskGroupId,
+                                                    taskBusId: taskBusId
                                                 });
                                             }
                                         }
