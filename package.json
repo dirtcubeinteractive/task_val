@@ -4,7 +4,7 @@
 	"description": "",
 	"main": "index.js",
 	"scripts": {
-		"dev": "node task-val-dev-update-schedule.js",
+		"dev": "node task-val-console-dev.js",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"author": "",
