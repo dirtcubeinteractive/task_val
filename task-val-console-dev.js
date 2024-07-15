@@ -365,7 +365,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                                         customEventId: clientDefinedCustomEventId
                                     });
                                     const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
-                                    logger.log('result', result);
+                                    logger.info('result', result);
                                     if (result.length) {
                                         paramDetails[param.parameterName] = result[0][param.parameterName + "Sum"]
                                     }
@@ -377,7 +377,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                         if (task.isRecurring) {
                             // const dbDoc = await utsc.find({userId: userId, taskId: task.taskId}).toArray();
                             // if (dbDoc) {
-                            //     console.log('Doc found');
+                            //     console.info('Doc found');
                             // }
 
                             const userUpdateWalletCollection = db.collection(collectionName);
@@ -494,7 +494,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                         name: 'test',
                         event: '',
                         onFailure: async () => {
-                            logger.log('task failed', {taskId : task.taskId});
+                            logger.info('task failed', {taskId : task.taskId});
                             paramDetails = originalParamDetails;
                             if (taskValidationInit) {
                                 await utsc.insertOne({
@@ -506,7 +506,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                             }
                         },
                         onSuccess: async () => {
-                            logger.log('task passed', {taskId : task.taskId});
+                            logger.info('task passed', {taskId : task.taskId});
                             paramDetails = originalParamDetails;
                             if (shouldEvaluate) {
                                 const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
@@ -636,7 +636,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                             }
                         }
                     });
-                    logger.log('paramDetails', paramDetails);
+                    logger.info('paramDetails', paramDetails);
                     await ruleEngine.run(paramDetails);
                     ruleEngine.stop();
                 }
@@ -647,7 +647,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
 
         return res.json({success: true})
     } catch (err) {
-        // console.log('error', err);
+        // console.info('error', err);
         return res.status(500).json({error: err});
     } finally {
         // Close Mongoose connection
