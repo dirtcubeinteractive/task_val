@@ -200,6 +200,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                                 }
                             });
                             await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                projectId : projectId,
                                 userId: userId,
                                 eventId: eventId,
                                 taskId: task.taskId,
@@ -257,6 +258,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                                                 }
                                             });
                                             await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                                projectId : projectId,
                                                 userId: userId,
                                                 eventId: eventId,
                                                 taskGroupId: task.taskGroupId,
@@ -363,7 +365,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                                         customEventId: clientDefinedCustomEventId
                                     });
                                     const result = await userUpdateWalletCollection.aggregate(pipeline).toArray();
-
+                                    logger.log('result', result);
                                     if (result.length) {
                                         paramDetails[param.parameterName] = result[0][param.parameterName + "Sum"]
                                     }
@@ -492,6 +494,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                         name: 'test',
                         event: '',
                         onFailure: async () => {
+                            logger.log('task failed', {taskId : task.taskId});
                             paramDetails = originalParamDetails;
                             if (taskValidationInit) {
                                 await utsc.insertOne({
@@ -503,6 +506,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                             }
                         },
                         onSuccess: async () => {
+                            logger.log('task passed', {taskId : task.taskId});
                             paramDetails = originalParamDetails;
                             if (shouldEvaluate) {
                                 const dbTask = await sequelize.query(`select * from tasks where id=:taskId`, {
@@ -550,6 +554,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                                         }
                                     });
                                     await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                        projectId : projectId,
                                         userId: userId,
                                         eventId: eventId,
                                         taskId: task.taskId,
@@ -617,6 +622,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                                                     }
                                                 });
                                                 await axios.post('http://localhost:3000/v1/task/grantReward', {
+                                                    projectId : projectId,
                                                     userId: userId,
                                                     eventId: eventId,
                                                     taskGroupId: task.taskGroupId,
@@ -630,6 +636,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
                             }
                         }
                     });
+                    logger.log('paramDetails', paramDetails);
                     await ruleEngine.run(paramDetails);
                     ruleEngine.stop();
                 }
