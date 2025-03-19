@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
+const AWS = require("aws-sdk");
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
@@ -15,6 +16,9 @@ const axios = require('axios');
 require('dotenv').config()
 
 const winston = require('winston');
+
+const sqs = new AWS.SQS({ region:  process.env.AWS_REGION });
+const queueUrl = process.env.AWS_SQS_QUEUE_CALCULATION_URL;
 
 const levels = {
     error: 0,
@@ -643,6 +647,25 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
             } catch (err) {
                 logger.error('error', err);
             }
+        }
+
+        // send an sqs message to calculate tasks count
+
+        // Build the message payload for SQS
+        const payload = {
+            tasksCount: tasks.length,
+            projectId: projectId,
+            timestamp: new Date().toISOString()
+        };
+        const params = {
+            QueueUrl: queueUrl,
+            MessageBody: JSON.stringify(payload)
+        };
+        
+        try {
+            await sqs.sendMessage(params).promise();
+        } catch (error) {
+            console.log("Error sending SQS message:", error);
         }
 
         return res.json({success: true})
