@@ -653,6 +653,7 @@ values ('${taskBusId}', '${taskStatus}', null, '${projectId}', '${userId}', '${t
 
         // Build the message payload for SQS
         const payload = {
+            reason: 'calculating tasks',
             tasksCount: tasks.length,
             projectId: projectId,
             timestamp: new Date().toISOString()
